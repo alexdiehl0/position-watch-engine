@@ -1,0 +1,25 @@
+{
+  "date": "2026-01-02",
+  "holdings": {
+    "USDS": {
+      "action": "hold",
+      "one_line": "Fairly valued."
+    },
+    "EURS": {
+      "action": "add",
+      "one_line": "Cheap."
+    }
+  },
+  "etfs": {
+    "ETFX": {
+      "action": "top_up",
+      "one_line": "Below its average."
+    }
+  },
+  "candidates": {
+    "AAA": {
+      "action": "buy",
+      "one_line": "Discount and yield."
+    }
+  }
+}

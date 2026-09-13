@@ -1,0 +1,11 @@
+{
+  "_about": "Test fixture: invented people, not real accounts.",
+  "routines_run_on": "op",
+  "people": [
+    {"id": "op", "name": "Operator", "role": "operator", "email": "operator@example.com", "receives_daily_email": true},
+    {"id": "client", "name": "Client", "role": "client", "email": "Client@Example.com", "receives_daily_email": true,
+     "preferences": {"investment_horizon": "5-10 years", "goal": "Income", "risk_tolerance": null,
+                     "favours": ["high dividend payers"], "preferred_sectors": [], "avoid": [], "other_notes": [],
+                     "history": [{"date": "2026-01-01", "change": "Initial profile", "source": "operator"}]}}
+  ]
+}

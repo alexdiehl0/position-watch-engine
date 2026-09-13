@@ -1,0 +1,158 @@
+{
+  "holdings": {
+    "USDS": {
+      "symbol": "USDS",
+      "company_name": "US Stock Inc",
+      "sector": "Technology",
+      "industry": "Software",
+      "description": "Makes software.",
+      "price": 15.0,
+      "sources": {
+        "price": "Finnhub"
+      },
+      "data_gaps": [
+        "forward_pe: missing"
+      ],
+      "volatility_3m_pct": 42.0,
+      "beta": 1.3,
+      "volatility": "high",
+      "volatility_note": "3-month volatility 42.0% annualised (high) [Finnhub]",
+      "recent_news": [
+        {
+          "headline": "<script>alert('x')</script> Evil headline",
+          "source": "Wire",
+          "date": "2026-01-02",
+          "url": "javascript:alert(1)"
+        },
+        {
+          "headline": "Normal headline & more",
+          "source": "Wire",
+          "date": "2026-01-02",
+          "url": "https://example.com/a"
+        }
+      ]
+    },
+    "EURS": {
+      "symbol": "EURS",
+      "company_name": "Euro Stock SA",
+      "sector": "Financial Services",
+      "industry": "Insurance",
+      "description": null,
+      "price": 25.0,
+      "sources": {
+        "price": "yfinance"
+      },
+      "data_gaps": [],
+      "volatility_3m_pct": null,
+      "beta": null,
+      "recent_news": []
+    }
+  },
+  "etfs": {
+    "ETFX": {
+      "symbol": "ETFX",
+      "name": "Test ETF",
+      "currency": "USD",
+      "price": null,
+      "sources": {},
+      "reference_price": 110.0,
+      "reference_price_source": "broker snapshot",
+      "vs_avg_cost_pct": 10.0,
+      "below_52w_high_pct": null,
+      "expense_ratio_pct": 0.07,
+      "dividend_yield_pct": null,
+      "week52_swing_pct": 16.4,
+      "beta_3y": 0.95,
+      "allocation_pct": 20.0,
+      "data_gaps": [
+        "live price: not returned"
+      ]
+    }
+  },
+  "candidates": {
+    "AAA": {
+      "symbol": "AAA",
+      "company_name": "Alpha Corp",
+      "sector": "Utilities",
+      "industry": "Power",
+      "description": "Sells power.",
+      "price": 50.0,
+      "data_gaps": [],
+      "recent_news": [],
+      "volatility_note": "3-month volatility 15.0% annualised (low) [Finnhub]",
+      "pool": {
+        "slot": "top",
+        "score": 1.2,
+        "screen": "P/E 10.0 vs 5-yr median 14.0 (29% below) \u00b7 yield 5.0%",
+        "via": "starting list: Test",
+        "times_on_watchlist": 1
+      }
+    }
+  },
+  "excluded": [
+    {
+      "symbol": "GOLD",
+      "reason": "commodity/FX position -- no equity valuation/dividend framework applies"
+    }
+  ],
+  "pool": {
+    "refreshed": "2026-01-01",
+    "size": 2,
+    "passed": 1,
+    "notes": [],
+    "stocks": [
+      {
+        "symbol": "AAA",
+        "name": "Alpha Corp",
+        "industry": "Power",
+        "via": "starting list: Test",
+        "added": "2026-01-01",
+        "pe": 10.0,
+        "five_yr_median_pe": 14.0,
+        "dividend_yield_pct": 5.0,
+        "payout_ratio_pct": 50.0,
+        "market_cap_usd_m": 50000,
+        "volatility_3m_pct": 15.0,
+        "beta": 0.5,
+        "score": 1.2,
+        "why": "cheap",
+        "passed": true,
+        "filtered_out": null,
+        "times_on_watchlist": 1,
+        "picked_today": "top",
+        "first_time": true,
+        "held": false
+      },
+      {
+        "symbol": "TINY",
+        "name": null,
+        "industry": null,
+        "via": "similar to USDS",
+        "added": "2026-01-01",
+        "pe": null,
+        "five_yr_median_pe": null,
+        "dividend_yield_pct": null,
+        "payout_ratio_pct": null,
+        "market_cap_usd_m": 900,
+        "volatility_3m_pct": null,
+        "beta": null,
+        "score": null,
+        "why": null,
+        "passed": false,
+        "filtered_out": "market cap under $2B",
+        "times_on_watchlist": 0,
+        "picked_today": null,
+        "first_time": false,
+        "held": false
+      }
+    ]
+  },
+  "fx": {
+    "EUR": {
+      "rate": 1.1,
+      "date": "2026-01-02",
+      "source": "ECB reference rate"
+    }
+  },
+  "fx_errors": {}
+}

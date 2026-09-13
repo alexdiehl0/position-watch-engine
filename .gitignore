@@ -12,8 +12,8 @@ dist/
 .ruff_cache/
 
 # A local portfolio workspace used while developing
-workspace/
-pages/
+/workspace/
+/pages/
 
 # OS / editor
 .DS_Store

@@ -151,11 +151,11 @@ def record_snapshot(month: str, snap: dict):
                          round(t["dividends_usd"]), snap["concentration"]["top3_weight_pct"]])  # fmt: skip
 
 
-def run(send_email: bool = True, client=None, today: date | None = None, mode=None) -> dict:
+def facts(today: date | None = None) -> dict:
+    """Everything the monthly review is based on, computed from the workspace: no API calls."""
     today = today or datetime.now(timezone.utc).date()
     month = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")  # the month just ended
     holdings, review, _ = view.load_inputs()
-    looked_back = history(suggestion_log.load_entries(), today)
     snap = snapshot(holdings, review or {})
     prev = previous_snapshot(month)
     if prev:
@@ -164,7 +164,13 @@ def run(send_email: bool = True, client=None, today: date | None = None, mode=No
             "value_change_usd": round(snap["totals"]["value_usd"] - float(prev["value_usd"])),
             "dividends_change_usd": round(snap["totals"]["dividends_usd"] - float(prev["dividends_usd"])),
         }
+    return {"month": month, "portfolio": snap, "calls_over_the_month": history(suggestion_log.load_entries(), today)}
 
+
+def run(send_email: bool = True, client=None, today: date | None = None, mode=None) -> dict:
+    today = today or datetime.now(timezone.utc).date()
+    f = facts(today)
+    month, snap, looked_back = f["month"], f["portfolio"], f["calls_over_the_month"]
     prefs = {k: v for k, v in (people.client().get("preferences") or {}).items() if k != "history"}
     compact = {"separators": (",", ":"), "default": str}
     user = (

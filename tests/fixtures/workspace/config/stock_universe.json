@@ -1,0 +1,2 @@
+{"refresh_days": 7, "pool_cap": 10, "min_market_cap_usd_m": 2000, "watchlist": {"top": 2, "rotation": 1},
+ "seeds": {"Test": ["AAA", "BBB", "CCC", "DDD"]}}

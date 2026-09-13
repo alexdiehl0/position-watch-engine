@@ -120,7 +120,7 @@ def cmd_daily(args):
 def cmd_monthly(args):
     from position_watch import monthly
 
-    _print(monthly.run(send_email=not args.no_email))
+    _print(monthly.facts() if args.facts else monthly.run(send_email=not args.no_email))
 
 
 def cmd_init(args):
@@ -144,6 +144,7 @@ def build_parser():
     p.set_defaults(func=cmd_daily)
     p = sub.add_parser("monthly", help="the monthly look-back and whole-portfolio review")
     p.add_argument("--no-email", action="store_true", help="write the report only")
+    p.add_argument("--facts", action="store_true", help="print the computed facts only (no Claude call, no files)")
     p.set_defaults(func=cmd_monthly)
     sub.add_parser("check-env", help="say which secrets are set (never their values)").set_defaults(func=cmd_check_env)
     p = sub.add_parser("review", help="gather live evidence for holdings and the watchlist")

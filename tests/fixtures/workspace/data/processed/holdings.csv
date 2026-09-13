@@ -1,0 +1,6 @@
+symbol,name,exchange,currency,quantity_est,avg_price,last_price,allocation_pct,invested_usd,unrealized_gain_usd,daily_gain_pct,total_dividend_usd,total_gain_usd,total_gain_pct,status
+USDS,US Stock Inc,NYSE,USD,100,10.00,12.00,40,1000,200,0,50,250,25,open
+EURS,Euro Stock SA,PAR,EUR,100,20.00,22.00,30,2200,220,0,0,220,10,open
+ETFX,Test ETF,LSE,USD,10,100.00,110.00,20,1000,100,0,20,120,12,open
+GOLD,Gold Kilo,OTC,USD,1,500.00,450.00,10,500,-50,0,0,-50,-10,open
+OLD,Sold Co,NYSE,USD,0,5.00,5.00,,0,0,0,0,0,0,closed

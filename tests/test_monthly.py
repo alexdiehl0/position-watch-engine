@@ -36,6 +36,13 @@ def test_snapshot_measures_the_whole_portfolio(holdings, review_data):
     assert snap["sectors"][0]["share_pct"] >= snap["sectors"][-1]["share_pct"]
 
 
+def test_facts_need_no_api(workspace, monkeypatch):
+    monkeypatch.setattr(monthly.suggestion_log, "load_entries", lambda: LOG)
+    f = monthly.facts(date(2026, 2, 1))
+    assert f["month"] == "2026-01" and f["portfolio"]["concentration"]["top3_weight_pct"] > 0
+    assert {r["symbol"] for r in f["calls_over_the_month"]} == {"EURS", "ETFX"}
+
+
 def test_monthly_run_writes_report_snapshot_and_email(workspace, monkeypatch):
     sent = []
     monkeypatch.setattr(mail, "send", lambda to, subject, body: sent.append((subject, body)))
