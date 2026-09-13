@@ -1,0 +1,112 @@
+"""Deterministic access to config/people.json: who uses the system, who gets
+the daily email, whose inbox holds the feedback, and the client's preference
+profile.
+
+The daily routine decides *what* a piece of feedback means; this module only
+reads and writes the file. A lasting preference found in feedback (e.g. "no
+more China exposure") is recorded with update_preferences(), which appends a
+dated history entry naming the source, so every change to the profile can be
+traced back to the message that caused it.
+
+`python -m position_watch people` prints the file for the routine to read.
+"""
+
+import json
+import os
+from datetime import date
+
+from position_watch import settings
+
+
+def people_path():
+    return settings.config_dir() / "people.json"
+
+
+LIST_FIELDS = ("favours", "preferred_sectors", "avoid", "other_notes")
+SCALAR_FIELDS = ("investment_horizon", "goal", "risk_tolerance")
+
+
+def load():
+    with open(people_path()) as f:
+        return json.load(f)
+
+
+def save(data):
+    with open(people_path(), "w") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def people():
+    return load()["people"]
+
+
+def recipients():
+    """Emails of everyone who should get the daily review."""
+    return [p["email"] for p in people() if p.get("receives_daily_email") and p.get("email")]
+
+
+def operator():
+    return next(p for p in people() if p.get("role") == "operator")
+
+
+def client():
+    return next(p for p in people() if p.get("role") == "client")
+
+
+def routine_owner():
+    """The person whose claude.ai account runs the routines (`routines_run_on`)."""
+    owner_id = load().get("routines_run_on") or operator()["id"]
+    return next(p for p in people() if p["id"] == owner_id)
+
+
+def feedback_inbox():
+    """The inbox the daily run reads feedback from (MAIL_USER when set, else the
+    owner named in `routines_run_on`), so the dashboard's feedback box sends there."""
+    return os.environ.get("MAIL_USER") or routine_owner()["email"]
+
+
+def who_sent(email):
+    """Name and role for a feedback sender's address, or None if unknown."""
+    email = (email or "").strip().lower()
+    for p in people():
+        if p.get("email") and p["email"].lower() == email:
+            return {"name": p["name"], "role": p["role"]}
+    return None
+
+
+def update_preferences(changes: dict, source: str, when: str = None):
+    """Applies `changes` to the client's preferences and logs them.
+
+    changes: scalar fields (investment_horizon, goal, risk_tolerance) are
+    replaced; list fields (favours, preferred_sectors, avoid, other_notes)
+    take {"add": [...], "remove": [...]}. source: where the change came from,
+    e.g. "feedback email <message id> from <name>". Returns the summary line
+    written to history."""
+    data = load()
+    prefs = next(p for p in data["people"] if p.get("role") == "client")["preferences"]
+    summary = []
+    for key, value in changes.items():
+        if key in SCALAR_FIELDS:
+            prefs[key] = value
+            summary.append(f"{key} -> {value}")
+        elif key in LIST_FIELDS:
+            current = prefs.setdefault(key, [])
+            for item in value.get("add", []):
+                if item not in current:
+                    current.append(item)
+                    summary.append(f"{key} + {item}")
+            for item in value.get("remove", []):
+                if item in current:
+                    current.remove(item)
+                    summary.append(f"{key} - {item}")
+        else:
+            raise ValueError(f"unknown preference field: {key}")
+    if summary:
+        line = "; ".join(summary)
+        prefs.setdefault("history", []).append(
+            {"date": when or date.today().isoformat(), "change": line, "source": source}
+        )
+        save(data)
+        return line
+    return None

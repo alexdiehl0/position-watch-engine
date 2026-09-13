@@ -1,0 +1,27 @@
+{%- from "macros.html" import h2, th, dv -%}
+{%- set t = positions.totals -%}
+<section id="positions" tabindex="-1">
+  {{ h2("positions", "Positions & P&L") }}
+  <p class="sub">Each position in its own currency, largest first; the total row is in USD.</p>
+  <div class="table-scroll"><table class="pnl sortable">
+    <thead><tr>{{ th("Position", "text") }}{{ th("Shares", "num", "right") }}{{ th("Avg cost", "num", "right") }}{{ th("Price", "num", "right") }}{{ th("Value", "num", "right", "descending") }}{{ th("P&L", "num", "right") }}{{ th("P&L %", "num", "right") }}</tr></thead>
+    <tbody>
+    {%- for p in positions.rows %}
+      <tr><td data-v="{{ p.symbol }}"><span class="ticker">{{ p.symbol }}</span> <span class="pos-name">{{ p.name }}</span>{% if p.flag %}<div class="row-flag">{{ p.flag }}</div>{% endif %}</td>
+        <td class="num right"{{ dv(p.shares) }}>{{ p.shares | fmt("{:,.0f}") }}</td>
+        <td class="num right"{{ dv(p.avg_cost) }}>{{ p.avg_cost | money(p.currency, 2) }}</td>
+        <td class="num right"{{ dv(p.price) }}>{{ p.price | money(p.currency, 2) }} <span class="px-tag {{ 'live' if p.live else 'snap' }}" title="{{ p.price_source }}">{{ 'live' if p.live else 'snapshot' }}</span></td>
+        <td class="num right"{{ dv(p.value_usd) }}>{{ p.value | money(p.currency) }}</td>
+        <td class="num right {{ p.pnl | tone }}"{{ dv(p.pnl_usd) }}>{{ p.pnl | money(p.currency, signed=true) }}</td>
+        <td class="num right {{ p.pnl | tone }}"{{ dv(p.pnl_pct) }}>{{ p.pnl_pct | pct }}</td></tr>
+    {%- endfor %}
+    </tbody>
+    <tfoot><tr class="total"><td>Total, in USD <span class="pos-name">cost {{ t.invested_usd | money }}</span></td><td></td><td></td><td></td>
+      <td class="num right">{{ t.value_usd | money }}</td>
+      <td class="num right {{ t.pnl_usd | tone }}">{{ t.pnl_usd | money(signed=true) }}</td>
+      <td class="num right {{ t.pnl_usd | tone }}">{{ t.pnl_pct | pct }}</td></tr></tfoot>
+  </table></div>
+  {%- for n in positions.notes %}
+  <p class="pnl-note">{{ n }}</p>
+  {%- endfor %}
+</section>

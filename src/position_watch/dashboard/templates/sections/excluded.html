@@ -1,0 +1,14 @@
+{%- from "macros.html" import h2 -%}
+<section id="excluded" tabindex="-1">
+  {{ h2("excluded", "Not evaluated") }}
+  <p class="sub">Positions deliberately left out of the valuation pass, and why.</p>
+  {% if not excluded -%}
+  <p class="empty">None.</p>
+  {%- else -%}
+  <ul class="excluded">
+    {%- for e in excluded %}
+    <li><span class="ticker">{{ e.symbols }}</span><span class="reason">{{ e.reason }}</span></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</section>

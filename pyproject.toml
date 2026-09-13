@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "position-watch"
+dynamic = ["version"]
+description = "Private portfolio research assistant: live evidence, daily suggestions and a locked dashboard. Never trades."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "yfinance>=0.2.40",
+    "cryptography>=42",
+    "jinja2>=3.1",
+    "anthropic>=1.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+position-watch = "position_watch.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "position_watch.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+position_watch = ["dashboard/templates/*.html", "dashboard/templates/sections/*.html", "dashboard/static/*", "documents/templates/*", "scaffold/*", "scaffold/*/*", "scaffold/*/*/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# pandas (pulled in by yfinance) warns about a future dependency; not ours to fix.
+filterwarnings = ["ignore::DeprecationWarning:yfinance.*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# Line length is the formatter's job (`ruff format`); long literal strings are left alone.
+ignore = ["E501"]

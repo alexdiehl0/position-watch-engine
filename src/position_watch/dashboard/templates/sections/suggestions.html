@@ -1,0 +1,22 @@
+{%- from "macros.html" import h2, th, pill, company, vol_cell -%}
+<section id="suggestions" tabindex="-1">
+  {{ h2("suggestions", "Today’s suggestions — your holdings") }}
+  <p class="sub">{{ suggestion_counts }}Each call rests on figures pulled live from FMP, Finnhub and yfinance during the run; the full report cites every number and lists what was missing.</p>
+  {% if not has_review -%}
+  <p class="empty">No live review data available for this run.</p>
+  {%- else -%}
+  <div class="table-scroll"><table class="holdings sortable">
+    <thead><tr>{{ th("Company", "text") }}{{ th("Action", "num") }}<th>Reasoning</th>{{ th("Weight", "num", "right") }}{{ th("Volatility", "num", "right") }}{{ th("Gaps", "num", "right") }}</tr></thead>
+    <tbody>
+    {%- for r in holdings %}
+      <tr><td class="co-cell" data-v="{{ r.company.symbol }}">{{ company(r.company) }}</td>
+        <td data-v="{{ r.action.rank }}">{{ pill(r.action) }}</td>
+        <td class="reason">{{ r.one_line }}</td>
+        <td class="num right" data-v="{{ '%.4f' | format(r.weight) }}">{{ '%.1f' | format(r.weight) }}%</td>
+        {{ vol_cell(r.risk) }}
+        <td class="num right muted" data-v="{{ r.gaps }}">{{ r.gaps }}</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- endif %}
+</section>

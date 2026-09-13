@@ -1,0 +1,10 @@
+{%- set t = totals -%}
+<div id="overview" class="anchor" tabindex="-1">
+  <div class="stat-strip">
+    <div class="stat"><div class="label">Initial investment</div><div class="value">{{ t.invested_usd | money }}</div><div class="hint">cost of open positions</div></div>
+    <div class="stat"><div class="label">Total value</div><div class="value">{{ t.value_usd | money }}</div><div class="hint">{{ t.live_priced }} of {{ t.positions }} at live prices</div></div>
+    <div class="stat"><div class="label">Return</div><div class="value {{ t.pnl_usd | tone }}">{{ t.pnl_usd | money(signed=true) }}</div><div class="hint">{{ t.pnl_pct | pct }} on cost</div></div>
+    <div class="stat"><div class="label">Dividends received</div><div class="value">{{ t.dividends_usd | money }}</div><div class="hint">to date, broker-reported</div></div>
+    <div class="stat"><div class="label">Total return</div><div class="value {{ t.total_return_usd | tone }}">{{ t.total_return_usd | money(signed=true) }}</div><div class="hint">{{ t.total_return_pct | pct }} incl. dividends</div></div>
+  </div>
+</div>

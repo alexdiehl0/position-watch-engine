@@ -1,0 +1,33 @@
+{%- from "macros.html" import h2, th, dv, pill, vol_cell -%}
+<section id="pool" tabindex="-1">
+  {{ h2("pool", "Stock pool") }}
+  <p class="sub">Every stock the watchlist is picked from. Refreshed weekly with companies similar to what you own and to recent Buy or Add picks; screened every morning; anything once on the watchlist stays here with its last call.</p>
+  {% if not pool -%}
+  <p class="empty">The stock pool is built on the next daily run.</p>
+  {%- else -%}
+  <p class="pool-meta"><span class="num">{{ pool.size }}</span> stocks · <span class="num">{{ pool.passed }}</span> passed today&rsquo;s screen · last refreshed <span class="num">{{ pool.refreshed }}</span></p>
+  {#- Scrolls in its own box so a 150-row table doesn't push the rest of the page away. -#}
+  <div class="table-scroll pool-scroll"><table class="pool sortable">
+    <thead><tr>{{ th("Stock", "text") }}{{ th("Score", "num", "right", "descending") }}{{ th("P/E", "num", "right") }}{{ th("vs 5-yr median", "num", "right") }}{{ th("Yield", "num", "right") }}{{ th("Payout", "num", "right") }}{{ th("Mkt cap", "num", "right") }}{{ th("Volatility", "num", "right") }}{{ th("Picked", "num", "right") }}{{ th("Last call", "num") }}{{ th("Status", "num") }}</tr></thead>
+    <tbody>
+    {%- for r in pool.rows %}
+      <tr class="{{ '' if r.passed else 'dim' }}"><td data-v="{{ r.symbol }}"><span class="ticker">{{ r.symbol }}</span><div class="pool-name">{{ r.label }}</div><div class="pool-via">{{ r.via }}</div></td>
+        <td class="num right"{{ dv(r.score) }}>{{ r.score | fmt("{:.2f}") }}</td>
+        <td class="num right"{{ dv(r.pe) }}>{{ (r.pe or none) | fmt("{:.1f}") }}</td>
+        <td class="num right"{{ dv(-r.vs_median if r.vs_median is not none else none) }}>{{ r.vs_median | pct }}</td>
+        <td class="num right"{{ dv(r.dividend_yield_pct) }}>{{ (r.dividend_yield_pct or none) | fmt("{:.1f}%") }}</td>
+        <td class="num right"{{ dv(r.payout_ratio_pct) }}>{{ r.payout_ratio_pct | fmt("{:.0f}%") }}</td>
+        <td class="num right"{{ dv(r.cap_b) }}>{{ r.cap_b | fmt("${:,.0f}B") }}</td>
+        {{ vol_cell(r.risk) }}
+        <td class="num right"{{ dv(r.times_on_watchlist) }}>{{ r.times_on_watchlist or 0 }}</td>
+        <td data-v="{{ r.last_call.action.rank if r.last_call else 9 }}">{% if r.last_call %}{{ pill(r.last_call.action) }} <span class="muted num">{{ r.last_call.date }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>
+        <td data-v="{{ r.status_rank }}">{% if r.status[0] == "muted" %}<span class="muted">{{ r.status[1] }}</span>{% else %}<span class="chip{{ ' chip-new' if r.status[0] == 'chip-new' else '' }}">{{ r.status[1] }}</span>{% endif %}</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  <p class="pnl-note">Score: how far the P/E sits below its own 5-year median (up to +1; no credit above a P/E of 40), plus dividend yield (up to +1 at 8%), minus a penalty when the payout is 80% or more. Plain arithmetic on one live Finnhub call per stock &mdash; a shortlist, not a verdict. The Buy/Hold call comes from the full review.</p>
+  {%- for n in pool.notes %}
+  <p class="pnl-note">{{ n }}</p>
+  {%- endfor %}
+  {%- endif %}
+</section>

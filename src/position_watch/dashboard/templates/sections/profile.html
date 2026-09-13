@@ -1,0 +1,11 @@
+{%- from "macros.html" import h2 -%}
+<section id="profile" tabindex="-1">
+  {{ h2("profile", "Your profile") }}
+  <p class="sub">What the daily review is tuned to. It updates when feedback states a lasting preference, and every change is logged with where it came from.</p>
+  <dl class="profile">
+    {%- for label, value, empty in profile.rows %}<dt>{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="muted">{{ empty }}</span>{% endif %}</dd>{% endfor -%}
+  </dl>
+  {%- if profile.last %}
+  <p class="pnl-note">Last change {{ profile.last.date }}: {{ profile.last.change }} ({{ profile.last.source }}).</p>
+  {%- endif %}
+</section>

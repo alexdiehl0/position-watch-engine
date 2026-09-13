@@ -1,0 +1,14 @@
+{%- from "macros.html" import h2 -%}
+<section id="news" tabindex="-1">
+  {{ h2("news", "Recent news") }}
+  <p class="sub">Headlines from the past week that fed into today&rsquo;s reasoning.</p>
+  {% if not news -%}
+  <p class="empty">No recent news returned this run.</p>
+  {%- else -%}
+  <ul class="news">
+    {%- for n in news %}
+    <li><span class="ticker">{{ n.symbol }}</span><a href="{{ n.url | safe_url }}" target="_blank" rel="noopener">{{ n.headline }}</a><span class="src">{{ n.source }} · <span class="num">{{ n.date }}</span></span></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</section>

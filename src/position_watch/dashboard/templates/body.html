@@ -1,0 +1,37 @@
+{%- from "macros.html" import icon -%}
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <span class="eyebrow">Daily research snapshot</span>
+      <h1>Position Watch</h1>
+    </div>
+    <div class="meta">
+      Report date <span class="num">{{ report_date or "–" }}</span>
+    </div>
+  </header>
+  <nav class="topnav" aria-label="Sections"><ul>
+    {%- for key, label in nav %}<li><a href="#{{ key }}">{{ icon(key) }}<span>{{ label }}</span></a></li>{% endfor -%}
+  </ul></nav>
+
+  {% include "sections/overview.html" %}
+  {% include "sections/allocation.html" %}
+  {% include "sections/positions.html" %}
+  {% include "sections/sectors.html" %}
+  {% include "sections/suggestions.html" %}
+  {% include "sections/etfs.html" %}
+  {% include "sections/watchlist.html" %}
+  {% include "sections/pool.html" %}
+  {% include "sections/news.html" %}
+  {% include "sections/excluded.html" %}
+  {% include "sections/profile.html" %}
+  {% include "sections/feedback.html" %}
+
+  {% if fragment %}
+  <p class="footnote notice">Private snapshot, republished by hand. It does not refresh on its own &mdash; the daily reports keep landing in the repository every morning.</p>
+  {% endif %}
+  <p class="footnote">Generated <span class="num">{{ generated_at }}</span>. Figures sourced live from FMP, Finnhub and yfinance at report time; see the
+  {% if reports_url %}<a href="{{ reports_url }}" target="_blank" rel="noopener">daily reports</a>{% else %}daily reports{% endif %} for sources and data gaps. {{ note }}</p>
+</div>
+<script>
+{{ js }}
+</script>

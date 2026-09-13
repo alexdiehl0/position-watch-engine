@@ -1,0 +1,24 @@
+Monthly review — {{ month }}
+
+{{ answer.overview }}
+
+Strengths
+{% for s in answer.strengths %}
+- {{ s }}
+{% endfor %}
+
+Risks
+{% for s in answer.risks %}
+- {{ s }}
+{% endfor %}
+
+Worth considering
+{% for s in answer.to_consider %}
+- {{ s }}
+{% endfor %}
+{% if report_url %}
+
+Full monthly report: {{ report_url }}
+{% endif %}
+
+{{ note }}

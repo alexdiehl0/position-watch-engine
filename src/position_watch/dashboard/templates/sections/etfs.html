@@ -1,0 +1,25 @@
+{%- from "macros.html" import h2, th, dv, pill, beta -%}
+<section id="etfs" tabindex="-1">
+  {{ h2("etfs", "Core ETFs — topped up now and then") }}
+  <p class="sub">Your plan for these is to top them up periodically, so each gets a Top up or Hold call from price vs your cost, distance from its 52-week high and its 200-day trend &mdash; not a stock valuation.</p>
+  {% if not etfs -%}
+  <p class="empty">No ETF data this run.</p>
+  {%- else -%}
+  <div class="table-scroll"><table class="holdings etf sortable">
+    <thead><tr>{{ th("ETF", "text") }}{{ th("Action", "num") }}<th>Why</th>{{ th("vs your cost", "num", "right") }}{{ th("vs 52-wk high", "num", "right") }}{{ th("Fee", "num", "right") }}{{ th("Yield", "num", "right") }}{{ th("52-wk swing", "num", "right") }}{{ th("Weight", "num", "right") }}</tr></thead>
+    <tbody>
+    {%- for e in etfs %}
+      <tr><td data-v="{{ e.symbol }}"><span class="ticker">{{ e.symbol }}</span> <span class="pos-name">{{ e.name }}</span></td>
+        <td data-v="{{ e.action.rank }}">{{ pill(e.action) }}</td>
+        <td class="reason">{{ e.one_line }}</td>
+        <td class="num right"{{ dv(e.vs_avg_cost_pct) }}>{{ e.vs_avg_cost_pct | pct }}{% if e.snapshot %} <span class="px-tag snap">snapshot</span>{% endif %}</td>
+        <td class="num right"{{ dv(e.vs_high) }}>{{ e.vs_high | pct }}</td>
+        <td class="num right"{{ dv(e.expense_ratio_pct) }}>{{ e.expense_ratio_pct | fmt("{:.2f}%") }}</td>
+        <td class="num right"{{ dv(e.dividend_yield_pct) }}>{{ e.dividend_yield_pct | fmt("{:.2f}%") }}</td>
+        <td class="num right"{{ dv(e.week52_swing_pct) }}>{{ e.week52_swing_pct | pct(plus=false) }}{{ beta(e.beta_3y) }}</td>
+        <td class="num right"{{ dv(e.allocation_pct) }}>{{ (e.allocation_pct or 0) | fmt("{:.1f}%") }}</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- endif %}
+</section>

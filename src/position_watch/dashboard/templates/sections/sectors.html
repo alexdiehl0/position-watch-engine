@@ -1,0 +1,20 @@
+{%- from "macros.html" import h2 -%}
+<section id="sectors" tabindex="-1">
+  {{ h2("sectors", "Sector breakdown") }}
+  <p class="sub">The whole portfolio as one bar, a colour per sector, split into the positions inside it. Hover a slice for the position. Sectors come from each company&rsquo;s profile; the ETFs span many sectors and are shown as one group.</p>
+  <div class="sector-chart">
+    <div class="secbar" role="img" aria-label="{{ sectors.aria }}">
+      {%- for s in sectors.segments %}<div class="secgrp" data-key="{{ s.key }}" style="flex-grow:{{ '%.2f' | format(s.value) }}">
+        {%- for p in s.positions %}<span class="secpos" tabindex="0" style="flex-grow:{{ '%.2f' | format(p.value) }};background:{{ s.color }}" data-tip="{{ p.symbol }} · {{ p.name }} — {{ p.value | money }}, {{ '%.1f' | format(p.share) }}% ({{ s.key }})"></span>{% endfor -%}
+      </div>{% endfor -%}
+    </div>
+    <div class="sec-tip" role="status" aria-live="polite" hidden></div>
+    <ul class="sectors">
+      {%- for s in sectors.legend %}
+      <li data-key="{{ s.key }}"><span class="swatch" style="background:{{ s.color }}"></span><span class="sec-label">{{ s.key }}<span class="sec-syms">
+        {%- for p in s.positions %}{% if not loop.first %} · {% endif %}{{ p.symbol }} <span class="num">{{ '%.1f' | format(p.share) }}%</span>{% endfor -%}
+      </span></span><span class="num sec-val">{{ s.value | money }}</span><span class="num sec-pct">{{ '%.1f' | format(s.share) }}%</span></li>
+      {%- endfor %}
+    </ul>
+  </div>
+</section>

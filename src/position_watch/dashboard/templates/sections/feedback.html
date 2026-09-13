@@ -1,0 +1,15 @@
+{%- from "macros.html" import h2 -%}
+<section id="feedback" tabindex="-1">
+  {{ h2("feedback", "Feedback") }}
+  <p class="sub">Tell tomorrow&rsquo;s run what to weigh differently. Your note goes to your own inbox as &ldquo;{{ feedback.subject }}&rdquo;; the 7am review reads it, applies it, and marks it as used. Replying to the daily email works too.</p>
+  {#- Inside a Claude Artifact, app.js sends through the viewer's Gmail connector; elsewhere it opens a pre-addressed email. -#}
+  <form class="fb-form" id="fb-form" data-to="{{ feedback.to }}" data-subject="{{ feedback.subject }}">
+    <label class="fb-label" for="fb-text">Your note</label>
+    <textarea id="fb-text" name="fb-text" maxlength="2000" placeholder="For example: I’d rather not add China exposure this year."></textarea>
+    <div class="fb-row">
+      <button type="submit" class="btn" id="fb-send">Write email</button>
+      <a class="fb-alt" id="fb-mail" href="{{ feedback.mailto }}">Email it instead</a>
+      <span class="fb-status" id="fb-status" role="status" aria-live="polite"></span>
+    </div>
+  </form>
+</section>

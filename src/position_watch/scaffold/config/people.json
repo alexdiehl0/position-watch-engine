@@ -1,0 +1,23 @@
+{
+  "_about": "Who uses this portfolio's Position Watch. No passwords or keys belong here. `routines_run_on` is the id of the person whose Gmail (MAIL_USER) sends the daily email and receives feedback.",
+  "routines_run_on": "owner",
+  "people": [
+    {
+      "id": "owner",
+      "name": "Your name",
+      "role": "client",
+      "email": "you@example.com",
+      "receives_daily_email": true,
+      "preferences": {
+        "investment_horizon": "5-10 years",
+        "goal": "Long-term growth and income",
+        "risk_tolerance": null,
+        "favours": ["undervalued stocks", "reliable dividend payers"],
+        "preferred_sectors": [],
+        "avoid": [],
+        "other_notes": [],
+        "history": []
+      }
+    }
+  ]
+}

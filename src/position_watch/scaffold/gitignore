@@ -1,0 +1,9 @@
+# Secrets -- never commit
+.env
+
+# Local checkout of the dashboard repo used when publishing
+pages/
+
+# OS / editor
+.DS_Store
+__pycache__/

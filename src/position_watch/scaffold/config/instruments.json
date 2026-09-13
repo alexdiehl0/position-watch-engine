@@ -1,0 +1,6 @@
+{
+  "_about": "How to treat each holding. `type` is stock (the default when a symbol isn't listed), etf (a Top up / Hold check instead of stock valuation) or commodity (not evaluated). `yahoo` is the Yahoo Finance ticker when it differs from your broker's symbol, e.g. London-listed ETFs end in .L and Paris shares in .PA.",
+  "instruments": {
+    "VWRL": {"type": "etf", "yahoo": "VWRL.L"}
+  }
+}

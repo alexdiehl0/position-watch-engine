@@ -1,0 +1,19 @@
+{%- from "macros.html" import h2 -%}
+{%- set a = allocation -%}
+<section id="allocation" tabindex="-1">
+  {{ h2("allocation", "Active positions") }}
+  <p class="sub">Weight of each open position. Hover or tab through the list to trace a position in the ring{{ a.other_note }}.</p>
+  <div class="allocation">
+    {#- The 2px gap between segments is a surface-coloured, non-scaling stroke. -#}
+    <svg class="donut" viewBox="0 0 220 220" role="img" aria-label="{{ a.aria }}">
+      {%- for s in a.slices %}<path class="seg" d="{{ s.d }}" fill="{{ s.color }}" data-key="{{ s.key }}" data-pct="{{ '%.1f' | format(s.pct) }}"></path>{% endfor -%}
+      <text class="donut-value" x="110" y="108" text-anchor="middle">{{ a.count }}</text>
+      <text class="donut-label" x="110" y="128" text-anchor="middle">open positions</text>
+    </svg>
+    <ul class="legend" aria-label="Allocation by position">
+      {%- for l in a.legend %}
+      <li class="leg" tabindex="0" data-key="{{ l.key }}"><span class="swatch" style="background:{{ l.color }}"></span><span class="leg-text"><span class="sym">{{ l.key }}</span><span class="leg-name">{{ l.name }}</span></span><span class="leg-bar"><span style="width:{{ '%.1f' | format(l.bar) }}%;background:{{ l.color }}"></span></span><span class="pct num">{{ '%.1f' | format(l.pct) }}%</span></li>
+      {%- endfor %}
+    </ul>
+  </div>
+</section>

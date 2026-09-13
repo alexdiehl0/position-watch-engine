@@ -1,0 +1,81 @@
+name: Daily review
+
+# Position Watch daily run: live evidence, one Claude call, report, dashboard, email.
+# Needs the repository secrets listed in README.md. Optional repository variables:
+#   PAGES_REPOSITORY  owner/name of the public repo that hosts your locked dashboard
+#   ENGINE_REF        engine version to run (a tag like v0.4.0, or main)
+on:
+  schedule:
+    - cron: "0 4 * * *"  # 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: position-watch
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75  # the Claude call is batched (half price) and can take a while
+    env:
+      PAGES_REPOSITORY: ${{ vars.PAGES_REPOSITORY }}
+      HAS_PAGES: ${{ vars.PAGES_REPOSITORY != '' && secrets.PAGES_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the dashboard repo
+        if: env.HAS_PAGES == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.PAGES_REPOSITORY }}
+          path: pages
+          token: ${{ secrets.PAGES_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Position Watch
+        run: pip install "position-watch @ git+https://github.com/${{ vars.ENGINE_REPO || 'alexdiehl0/position-watch-engine' }}@${{ vars.ENGINE_REF || 'main' }}"
+
+      - name: Run the daily review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          DASHBOARD_PASSCODE: ${{ secrets.DASHBOARD_PASSCODE }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+        run: |
+          if [ -d pages ]; then
+            position-watch daily --pages-dir pages
+          else
+            position-watch daily
+          fi
+
+      - name: Commit the day's files
+        if: always()
+        run: |
+          git config user.name "Position Watch"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config state reports site
+          if ! git diff --cached --quiet; then
+            git commit -m "Daily review $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Publish the locked dashboard
+        if: success() && env.HAS_PAGES == 'true'
+        working-directory: pages
+        run: |
+          git config user.name "Position Watch"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .nojekyll
+          if ! git diff --cached --quiet; then
+            git commit -m "Dashboard $(date -u +%F)"
+            git push
+          fi

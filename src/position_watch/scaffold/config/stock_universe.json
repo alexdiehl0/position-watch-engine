@@ -1,0 +1,95 @@
+{
+  "_about": "Settings and starting list for the stock pool the watchlist is picked from. Tickers only: every number used to rank them comes from the live screen. Edit freely; the next weekly refresh picks up changes. Large US listings only on Finnhub's free plan.",
+  "refresh_days": 7,
+  "pool_cap": 150,
+  "min_market_cap_usd_m": 2000,
+  "watchlist": {
+    "top": 6,
+    "rotation": 2
+  },
+  "seeds": {
+    "Consumer staples": [
+      "KO",
+      "PEP",
+      "PG",
+      "CL",
+      "KMB",
+      "GIS",
+      "MDLZ",
+      "KHC",
+      "HSY"
+    ],
+    "Healthcare": [
+      "JNJ",
+      "PFE",
+      "ABBV",
+      "MRK",
+      "BMY",
+      "AMGN",
+      "GILD",
+      "CVS"
+    ],
+    "Energy": [
+      "XOM",
+      "CVX",
+      "EOG",
+      "ENB",
+      "SHEL",
+      "TTE",
+      "KMI"
+    ],
+    "Utilities": [
+      "DUK",
+      "SO",
+      "NEE",
+      "D",
+      "AEP"
+    ],
+    "Telecoms": [
+      "VZ",
+      "T"
+    ],
+    "Financials": [
+      "JPM",
+      "BAC",
+      "WFC",
+      "C",
+      "USB",
+      "PNC",
+      "BLK",
+      "MET",
+      "PRU"
+    ],
+    "Real estate": [
+      "O",
+      "VICI",
+      "SPG",
+      "PLD"
+    ],
+    "Industrials": [
+      "MMM",
+      "UPS",
+      "LMT",
+      "CAT",
+      "HON"
+    ],
+    "Technology": [
+      "IBM",
+      "CSCO",
+      "TXN",
+      "QCOM",
+      "INTC",
+      "MSFT"
+    ],
+    "Materials": [
+      "DOW",
+      "LYB",
+      "NEM"
+    ],
+    "Consumer": [
+      "HD",
+      "MCD",
+      "TGT"
+    ]
+  }
+}

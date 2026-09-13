@@ -1,0 +1,43 @@
+name: Monthly review
+
+# Position Watch monthly run: how the calls evolved and a review of the portfolio as a whole.
+on:
+  schedule:
+    - cron: "0 5 1 * *"  # 05:00 UTC on the 1st
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: position-watch
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Position Watch
+        run: pip install "position-watch @ git+https://github.com/${{ vars.ENGINE_REPO || 'alexdiehl0/position-watch-engine' }}@${{ vars.ENGINE_REF || 'main' }}"
+      - name: Run the monthly review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+        run: position-watch monthly
+      - name: Commit the report
+        if: always()
+        run: |
+          git config user.name "Position Watch"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state reports
+          if ! git diff --cached --quiet; then
+            git commit -m "Monthly review $(date -u +%Y-%m)"
+            git pull --rebase
+            git push
+          fi
