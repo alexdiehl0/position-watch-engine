@@ -25,7 +25,8 @@ import statistics
 from datetime import date, timedelta
 
 from position_watch import settings, suggestion_log
-from position_watch.sources import finnhub
+from position_watch.analysis import volatility
+from position_watch.sources import finnhub, yahoo
 
 
 def universe_path():
@@ -187,7 +188,10 @@ def _score(pe, median_pe, yld, payout):
 
 
 def screen(pool, universe, today):
-    """One Finnhub call per pool stock. Stores each result on the entry."""
+    """One Finnhub call per pool stock, plus one Yahoo request for everyone's
+    daily prices (volatility is computed from those, Finnhub's figure is the
+    fallback). Stores each result on the entry."""
+    closes, _ = yahoo.get_closes_many(list(pool["stocks"]))
     for symbol, entry in pool["stocks"].items():
         data, err = finnhub.get_ratios(symbol)
         m = (data or {}).get("metric") or {}
@@ -200,6 +204,7 @@ def screen(pool, universe, today):
         yld = m.get("currentDividendYieldTTM") or m.get("dividendYieldIndicatedAnnual")
         payout = m.get("payoutRatioTTM") or m.get("payoutRatioAnnual")
         mcap = m.get("marketCapitalization")
+        vol = volatility.from_closes((closes or {}).get(symbol) or [])
 
         result = {
             "date": today.isoformat(),
@@ -208,7 +213,12 @@ def screen(pool, universe, today):
             "dividend_yield_pct": yld,
             "payout_ratio_pct": payout,
             "market_cap_usd_m": mcap,
-            "volatility_3m_pct": m.get("3MonthADReturnStd"),
+            "volatility_3m_pct": vol if vol is not None else m.get("3MonthADReturnStd"),
+            "volatility_source": volatility.SOURCE
+            if vol is not None
+            else "Finnhub"
+            if m.get("3MonthADReturnStd")
+            else None,
             "beta": m.get("beta"),
             "score": None,
             "why": None,

@@ -17,3 +17,23 @@ def test_feedback_accepts_replies_to_the_new_title():
     from position_watch import mail
 
     assert "Re: AI STOCK PORTFOLIO REVIEW" in mail.FEEDBACK_SUBJECTS
+
+
+def test_your_stocks_show_performance_and_volatility():
+    review = {
+        "holdings": {"USDS": {"volatility_3m_pct": 24.4}, "EURS": {}},
+        "etfs": {},
+        "candidates": {"AAA": {"volatility_3m_pct": 50.0}},
+    }
+    calls = {
+        "holdings": [{"symbol": "USDS", "action": "hold", "one_line": "Fine."},
+                     {"symbol": "EURS", "action": "add", "one_line": "Cheap."}],
+        "candidates": [{"symbol": "AAA", "action": "buy", "one_line": "Screened."}],
+    }  # fmt: skip
+    positions = {"USDS": {"pnl_pct": 20.0, "currency": "USD"}, "EURS": {"pnl_pct": -3.25, "currency": "EUR"}}
+    msg = documents.email("2026-01-02", review, calls, TOTALS, None, None, False, positions=positions)
+
+    assert "HOLD  USDS — \n+20.0% since you bought · volatility 24% (moderate)\nFine." in msg["text"]
+    assert "−3.2% since you bought (in EUR)\nCheap." in msg["text"]  # no volatility known: left out
+    assert "volatility 50%" not in msg["text"]  # watchlist rows stay short
+    assert "Volatility <span" in msg["html"] and "(in EUR)" in msg["html"]

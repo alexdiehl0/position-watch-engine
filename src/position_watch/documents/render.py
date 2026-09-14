@@ -11,6 +11,7 @@ from datetime import date
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from position_watch import compliance
+from position_watch.analysis.stock import volatility_level
 
 TITLE = "AI STOCK PORTFOLIO REVIEW"
 
@@ -59,8 +60,28 @@ def subject(day: str, suffix: str = "") -> str:
     return f"{TITLE} — {when}{f' — {suffix}' if suffix else ''}"
 
 
-def email_rows(calls: list, evidence: dict, names: dict | None = None) -> list:
-    """One compact row per symbol, most actionable first. Names fall back to the holdings file."""
+def _stats(d: dict, position: dict | None) -> dict | None:
+    """Performance since bought (price vs average cost, in the position's own
+    currency) and 3-month volatility, each only when known."""
+    perf, vol = (position or {}).get("pnl_pct"), d.get("volatility_3m_pct")
+    if perf is None and vol is None:
+        return None
+    currency = (position or {}).get("currency")
+    currency = currency if currency and currency != "USD" else None
+    parts = []
+    if perf is not None:
+        parts.append(f"{_pct(perf)} since you bought" + (f" (in {currency})" if currency else ""))
+    if vol is not None:
+        parts.append(f"volatility {vol:.0f}% ({volatility_level(vol)})")
+    return {
+        "perf_pct": perf, "perf_fg": BADGES["good" if (perf or 0) >= 0 else "crit"][0], "perf_currency": currency,
+        "vol_pct": vol, "vol_level": volatility_level(vol), "line": " · ".join(parts),
+    }  # fmt: skip
+
+
+def email_rows(calls: list, evidence: dict, names: dict | None = None, positions: dict | None = None) -> list:
+    """One compact row per symbol, most actionable first. Names fall back to the holdings file.
+    With `positions` (the P&L per symbol), rows also carry performance and volatility."""
     rows = []
     for c in calls:
         status = _STATUS.get((c.get("action") or "").lower(), "none")
@@ -70,6 +91,7 @@ def email_rows(calls: list, evidence: dict, names: dict | None = None) -> list:
             "symbol": c["symbol"], "name": d.get("company_name") or d.get("name") or (names or {}).get(c["symbol"]) or "",
             "label": compliance.label(c.get("action")).upper(), "one_line": c.get("one_line", ""),
             "fg": fg, "bg": bg, "order": _ORDER[status],
+            "stats": _stats(d, positions.get(c["symbol"])) if positions is not None else None,
         })  # fmt: skip
     return sorted(rows, key=lambda r: r["order"])
 
@@ -88,13 +110,15 @@ def email(
     dashboard_published,
     notes=(),
     names: dict | None = None,
+    positions: dict | None = None,
 ) -> dict:
-    """The daily email: {"subject", "text", "html"}."""
+    """The daily email: {"subject", "text", "html"}. `positions`: {symbol: P&L row from
+    pnl.compute()}, for the performance shown under "Your stocks"."""
     ctx = {
         "long_date": date.fromisoformat(day).strftime("%A, %-d %B %Y"),
         "totals": totals,
         "sections": [
-            ("Your stocks", email_rows(calls.get("holdings", []), review.get("holdings", {}), names)),
+            ("Your stocks", email_rows(calls.get("holdings", []), review.get("holdings", {}), names, positions or {})),
             ("Core ETFs", email_rows(calls.get("etfs", []), review.get("etfs", {}), names)),
             ("Watchlist", email_rows(calls.get("candidates", []), review.get("candidates", {}), names)),
         ],

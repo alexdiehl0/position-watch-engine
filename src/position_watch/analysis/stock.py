@@ -18,6 +18,7 @@ evidence into a portfolio-wide suggestion happens one level up.
 
 from datetime import date, datetime, timezone
 
+from position_watch.analysis import volatility
 from position_watch.sources import finnhub, fmp, yahoo
 
 
@@ -384,15 +385,13 @@ NUMERIC_WATERFALL_KEYS = (
     "week52_low",
 )
 
-# Plain convention for labelling annualised volatility; the broad US market
-# usually runs around 15-20%.
-VOLATILITY_BANDS = ((20, "low"), (35, "moderate"))
+volatility_level = volatility.level  # kept here for older imports
 
 
-def volatility_level(vol_pct):
-    if vol_pct is None:
-        return None
-    return next((label for limit, label in VOLATILITY_BANDS if vol_pct < limit), "high")
+def _computed_fields(symbol: str) -> dict:
+    """Metrics we compute ourselves from raw prices (see analysis/volatility.py)."""
+    closes, err = yahoo.get_closes(symbol)
+    return {"volatility_3m_pct": volatility.from_closes(closes) if not err else None}
 
 
 def _volatility_note(v, sources, price):
@@ -414,6 +413,11 @@ def _volatility_note(v, sources, price):
     return "; ".join(parts) if parts else None
 
 
+# Metrics computed from prices are preferred to a vendor's ready-made figure:
+# the same method for every symbol, on adjusted prices.
+COMPUTED_FIRST = {"volatility_3m_pct": (volatility.SOURCE,)}
+
+
 def _gather_fundamentals(symbol: str):
     """Merges FMP -> Finnhub -> yfinance into one normalized dict, tracking
     which source served each field. Returns (values, sources, dividend_events,
@@ -422,12 +426,14 @@ def _gather_fundamentals(symbol: str):
         "FMP": _fmp_fields(symbol),
         "Finnhub": _finnhub_fields(symbol),
         "yfinance": _yfinance_fields(symbol),
+        volatility.SOURCE: _computed_fields(symbol),
     }
 
     values, sources, gaps = {}, {}, []
     for key in NUMERIC_WATERFALL_KEYS:
         chosen, chosen_source = None, None
-        for source_name in ("FMP", "Finnhub", "yfinance"):
+        order = COMPUTED_FIRST.get(key, ()) + ("FMP", "Finnhub", "yfinance")
+        for source_name in order:
             v = per_source[source_name].get(key)
             if v is not None:
                 chosen, chosen_source = v, source_name

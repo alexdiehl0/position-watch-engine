@@ -51,6 +51,35 @@ def get_dividends(symbol: str, limit: int = 8):
     return events[:limit], None
 
 
+def get_closes(symbol: str, period: str = "3mo"):
+    """Adjusted daily closes, oldest first."""
+    try:
+        df = _ticker(symbol).history(period=period, auto_adjust=True)
+    except Exception as exc:
+        return None, f"yfinance price history for {symbol} failed: {exc}"
+    if df is None or df.empty:
+        return None, f"yfinance returned no price history for {symbol}"
+    return df["Close"].tolist(), None
+
+
+def get_closes_many(symbols, period: str = "3mo"):
+    """Adjusted daily closes for many symbols in one request: {symbol: [closes]}."""
+    tickers = {instruments.yahoo_symbol(s): s for s in symbols}
+    if not tickers:
+        return {}, None
+    try:
+        df = yf.download(list(tickers), period=period, auto_adjust=True, progress=False, group_by="column",
+                         threads=False)  # fmt: skip
+    except Exception as exc:
+        return None, f"yfinance batch price history failed: {exc}"
+    if df is None or df.empty:
+        return None, "yfinance returned no price history for the batch"
+    close = df["Close"]
+    if not hasattr(close, "columns"):  # a single symbol comes back as one column
+        return {next(iter(tickers.values())): close.tolist()}, None
+    return {tickers[t]: close[t].tolist() for t in close.columns if t in tickers}, None
+
+
 def get_recommendations(symbol: str):
     """Monthly analyst recommendation counts (strongBuy/buy/hold/sell/
     strongSell), most recent period last as returned by yfinance."""

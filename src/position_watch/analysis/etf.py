@@ -17,6 +17,7 @@ snapshot. A live price in a different currency from the position is not used.
 
 from datetime import datetime, timezone
 
+from position_watch.analysis import volatility
 from position_watch.sources import yahoo
 
 
@@ -69,6 +70,11 @@ def evaluate_etf(symbol: str, row: dict) -> dict:
         if value is None:
             gaps.append(f"{name}: not returned by yfinance")
 
+    closes, closes_err = yahoo.get_closes(symbol)
+    vol = volatility.from_closes(closes) if not closes_err else None
+    if vol is None:
+        gaps.append(f"3-month volatility: {closes_err or 'too little price history to compute'}")
+
     below_high = round((high - price) / high * 100, 2) if price is not None and high else None
     swing = round((high - low) / low * 100, 1) if high and low else None
     if beta is None:
@@ -79,7 +85,11 @@ def evaluate_etf(symbol: str, row: dict) -> dict:
         "name": info.get("longName") or row.get("name"),
         "currency": currency,
         "price": price,
-        "sources": {"price": "yfinance"} if price is not None else {},
+        "sources": {
+            **({"price": "yfinance"} if price is not None else {}),
+            **({"volatility_3m_pct": volatility.SOURCE} if vol is not None else {}),
+        },
+        "volatility_3m_pct": vol,
         "reference_price": reference_price,
         "reference_price_source": reference_source,
         "avg_cost": avg_cost,

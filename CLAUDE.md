@@ -47,7 +47,7 @@ Branch per change → pull request → CI (ruff + pytest) green → merge to `ma
 Every judgement rests on specific metrics — never a vague "looks undervalued". Missing metric → say so and leave that part out.
 - **Valuation:** P/E and forward P/E vs the stock's own 5-year average and sector · PEG (negative isn't a signal) · FCF yield · price vs analyst target.
 - **Dividend quality:** yield · payout ratio (flag near/over 100%) · growth streak · FCF coverage.
-- **Risk:** 3-month annualised volatility (low < 20%, moderate < 35%, high above), beta vs the S&P 500, 52-week range; weighed against the owner's risk tolerance.
+- **Risk:** 3-month annualised volatility, computed from adjusted daily closes for every stock and ETF (`analysis/volatility.py`; the vendor's figure only as a fallback) (low < 20%, moderate < 35%, high above), beta vs the S&P 500, 52-week range; weighed against the owner's risk tolerance.
 - **Forecast / sentiment:** analyst consensus and trend · consensus EPS growth (trailing growth labelled as such) · earnings surprises · headline tone.
 - **ETFs (Top up / Hold only):** price vs the owner's cost, below the 52-week high, vs the 200-day average, weight; fee, yield, swing and beta as context.
 - **Portfolio as a whole (monthly):** concentration (top-3 weight, effective number of positions), sector / currency / asset mix, value-weighted volatility and beta with coverage, income, change since last month.

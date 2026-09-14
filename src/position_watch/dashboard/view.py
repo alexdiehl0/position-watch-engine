@@ -267,6 +267,7 @@ def etf_rows(review, suggestions):
                 "one_line": sugg.get(sym, {}).get("one_line")
                 or "First Top up / Hold call arrives with the next daily run.",
                 "snapshot": e.get("reference_price_source") != "yfinance",
+                "risk": risk(e.get("volatility_3m_pct"), e.get("beta_3y")),
                 "vs_high": -below if below is not None else None,
             }
         )

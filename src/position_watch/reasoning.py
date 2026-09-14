@@ -88,7 +88,7 @@ If a metric is missing, say so rather than filling it in; the data gaps are list
 client's risk_tolerance; if none is stated, flag high volatility rather than assuming a tolerance.
 - ETFs are core holdings the client tops up now and then and never trades: only Top up (code top_up) or Hold. \
 Base the call on vs_avg_cost_pct (reference_price_source says whether a live or broker snapshot price was used), \
-below_52w_high_pct, vs_200d_pct and allocation_pct, with fee, yield, 52-week swing and beta as context. Lean to \
+below_52w_high_pct, vs_200d_pct and allocation_pct, with fee, yield, 52-week swing, 3-month volatility and beta as context. Lean to \
 Top up when the fund trades at a discount on those measures; otherwise Hold. If the live fields are missing, \
 say so and Hold.
 - Personalise: honour the client's preferences, yesterday's notes and new feedback explicitly, and say in the \
@@ -117,7 +117,7 @@ def _digest(review: dict) -> dict:
 
     etf_keys = ("name", "currency", "price", "reference_price_source", "vs_avg_cost_pct", "below_52w_high_pct",
                 "vs_200d_pct", "allocation_pct", "expense_ratio_pct", "dividend_yield_pct", "week52_swing_pct",
-                "beta_3y", "data_gaps")  # fmt: skip
+                "volatility_3m_pct", "beta_3y", "data_gaps")  # fmt: skip
     return {
         "holdings": {s: stock(d) for s, d in review.get("holdings", {}).items()},
         "etfs": {s: {k: e.get(k) for k in etf_keys} for s, e in review.get("etfs", {}).items()},
