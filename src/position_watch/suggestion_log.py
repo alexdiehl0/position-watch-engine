@@ -1,6 +1,6 @@
-"""Append-only history of daily suggestions, for the monthly tracking routine.
+"""History of daily suggestions, for the monthly tracking routine.
 
-Each daily routine run appends one row per symbol it evaluated (holding,
+Each daily run records one row per symbol it evaluated (holding,
 ETF or watchlist candidate) to the workspace's state/suggestion_log.csv. This is deliberately a separate,
 permanent, structured file rather than something derived by re-parsing
 markdown reports each month -- the monthly tracker needs clean historical
@@ -25,14 +25,17 @@ FIELDS = ["date", "scope", "symbol", "action", "one_line"]
 
 
 def append_entries(date: str, holdings: dict, candidates: dict, etfs: dict = None):
-    """holdings/candidates/etfs: {symbol: {"action":..., "one_line":...}}"""
-    log_path().parent.mkdir(parents=True, exist_ok=True)
-    is_new = not log_path().exists()
+    """holdings/candidates/etfs: {symbol: {"action":..., "one_line":...}}
 
-    with open(log_path(), "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
-        if is_new:
-            writer.writeheader()
+    A second run on the same date replaces that date's rows, so a re-run never
+    counts a day's calls twice."""
+    log_path().parent.mkdir(parents=True, exist_ok=True)
+    kept = [row for row in load_entries() if row.get("date") != date]
+
+    with open(log_path(), "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(kept)
         for scope, entries in (("holding", holdings), ("etf", etfs or {}), ("candidate", candidates)):
             for symbol, data in entries.items():
                 writer.writerow(

@@ -11,8 +11,8 @@ commits the workspace and pushes the locked dashboard. Steps:
   4. gather evidence          9. email the summary
   5. decide calls (Claude) and save them, the history, handoff, preferences
 
-If a step fails, the run writes a short failure note (<date>-review-FAILED.md), emails
-"AI STOCK PORTFOLIO REVIEW — <date> — FAILED" with the step and the (redacted) error,
+If a step fails, the run writes a short failure note (<date>-review-FAILED.md), emails the
+operator "AI STOCK PORTFOLIO REVIEW — <date> — FAILED" with the step and the (redacted) error,
 and exits non-zero so the workflow shows it.
 """
 
@@ -162,7 +162,7 @@ def _report_failure(day: str, step: str, error: str, send_email: bool):
     path.write_text(text)
     if send_email:
         try:
-            mail.send(people.recipients(), documents.subject(day, "FAILED"),
+            mail.send(people.alert_recipients(), documents.subject(day, "FAILED"),
                       f"Today's review stopped at: {step}\n\nError: {error}\n\n"
                       "Nothing was sent to the dashboard today. The workflow log has the details.")  # fmt: skip
         except Exception as mail_exc:  # the workflow still fails visibly
