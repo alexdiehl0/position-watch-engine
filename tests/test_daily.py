@@ -59,8 +59,9 @@ def test_failure_reports_and_emails_without_leaking_secrets(workspace, pipeline,
     assert exc.value.step == "gather evidence"
     assert not (workspace / "reports" / "2026-01-02-review.md").exists()
     report = (workspace / "reports" / "2026-01-02-review-FAILED.md").read_text()
-    subject, body = pipeline[0][1], pipeline[0][2]
+    to, subject, body = pipeline[0][0], pipeline[0][1], pipeline[0][2]
     assert subject == "AI STOCK PORTFOLIO REVIEW — 2 Jan 2026 — FAILED"
+    assert to == ["operator@example.com"]  # the operator fixes it; the client isn't alarmed
     for text in (report, body, str(exc.value)):
         assert "test-fmp_api_key-value" not in text and "apikey=***" in text
 
@@ -69,3 +70,11 @@ def test_missing_secret_stops_before_any_work(workspace, pipeline, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY")
     with pytest.raises(daily.StepFailed, match="ANTHROPIC_API_KEY"):
         daily.run(client=FakeClaude(), today="2026-01-02")
+
+
+def test_rerun_on_the_same_day_replaces_that_days_log(workspace, pipeline):
+    daily.run(client=FakeClaude(), today="2026-01-02")
+    daily.run(client=FakeClaude(), today="2026-01-02")
+
+    rows = (workspace / "state" / "suggestion_log.csv").read_text()
+    assert rows.count("2026-01-02,candidate,AAA,buy") == 1

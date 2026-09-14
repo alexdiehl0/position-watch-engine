@@ -46,6 +46,11 @@ def recipients():
     return [p["email"] for p in people() if p.get("receives_daily_email") and p.get("email")]
 
 
+def alert_recipients():
+    """Who hears about a failed run: the operators, or everyone on the daily email if none is listed."""
+    return [p["email"] for p in people() if p.get("role") == "operator" and p.get("email")] or recipients()
+
+
 def operator():
     return next(p for p in people() if p.get("role") == "operator")
 

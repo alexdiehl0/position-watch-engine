@@ -6,6 +6,7 @@ from position_watch import people
 def test_recipients_and_inbox():
     assert people.recipients() == ["operator@example.com", "Client@Example.com"]
     assert people.feedback_inbox() == "operator@example.com"
+    assert people.alert_recipients() == ["operator@example.com"]
 
 
 def test_who_sent_is_case_insensitive_and_rejects_strangers():
