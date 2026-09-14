@@ -23,7 +23,7 @@ flowchart TB
     S1["1 · read yesterday's notes<br/>and replies from known senders"]
     S2["2 · gather evidence<br/>every figure tagged with its source"]
     S3["3 · ONE Claude Opus 5 call<br/>batched at half price · checked by code"]
-    S4["4 · report · dashboard · email"]
+    S4["4 · report · dashboard<br/>email once the page is live"]
     S1 --> S2 --> S3 --> S4
   end
 
@@ -134,7 +134,7 @@ flowchart TB
 
   EVS --> VIEW
   CALLS --> VIEW
-  PUB ==>|"push with Pages token"| PAGES
+  PUB ==>|"push with Pages token<br/>then wait until it is live"| PAGES
   CALLS ==>|"summary line · calls · private link"| SMTP
   SMTP ==> CLIENT
   CLIENT ==>|"Open dashboard button<br/>or passcode"| PAGES

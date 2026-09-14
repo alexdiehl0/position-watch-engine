@@ -41,6 +41,8 @@ jobs:
       - name: Install Position Watch
         run: pip install "position-watch @ git+https://github.com/${{ vars.ENGINE_REPO || 'alexdiehl0/position-watch-engine' }}@${{ vars.ENGINE_REF || 'main' }}"
 
+      # With a dashboard repo, the run pushes the locked page itself and waits
+      # until it's live before sending the email.
       - name: Run the daily review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -65,17 +67,5 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Daily review $(date -u +%F)"
             git pull --rebase
-            git push
-          fi
-
-      - name: Publish the locked dashboard
-        if: success() && env.HAS_PAGES == 'true'
-        working-directory: pages
-        run: |
-          git config user.name "Position Watch"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html .nojekyll
-          if ! git diff --cached --quiet; then
-            git commit -m "Dashboard $(date -u +%F)"
             git push
           fi

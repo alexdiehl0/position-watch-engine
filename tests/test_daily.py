@@ -3,6 +3,7 @@ import json
 import pytest
 
 from position_watch import daily, mail, review
+from position_watch.dashboard import publish
 from tests.fakes import FEEDBACK, FakeClaude
 
 
@@ -78,3 +79,40 @@ def test_rerun_on_the_same_day_replaces_that_days_log(workspace, pipeline):
 
     rows = (workspace / "state" / "suggestion_log.csv").read_text()
     assert rows.count("2026-01-02,candidate,AAA,buy") == 1
+
+
+@pytest.fixture
+def pages(tmp_path, monkeypatch):
+    monkeypatch.setenv("DASHBOARD_PASSCODE", "test passcode")
+    monkeypatch.setenv("PAGES_REPOSITORY", "owner/dash")
+    checkout = tmp_path / "pages"
+    (checkout / ".git").mkdir(parents=True)
+    return checkout
+
+
+def test_email_goes_out_only_once_the_dashboard_is_live(workspace, pipeline, pages, monkeypatch):
+    events = []
+    monkeypatch.setattr(publish, "push", lambda d, message: events.append(f"push {message}") or True)
+    monkeypatch.setattr(publish, "wait_until_live", lambda url, page: events.append(f"live {url}") or True)
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: events.append("email"))
+
+    result = daily.run(pages_dir=pages, client=FakeClaude(), today="2026-01-02")
+
+    assert events == ["push Dashboard 2026-01-02", "live https://owner.github.io/dash/", "email"]
+    assert result["dashboard_published"] is True and (pages / "index.html").exists()
+
+
+def test_dashboard_trouble_still_sends_the_email_with_a_note(workspace, pipeline, pages, monkeypatch):
+    def refuse(d, message):
+        raise publish.PushFailed("git push: denied")
+
+    monkeypatch.setattr(publish, "push", refuse)
+    result = daily.run(pages_dir=pages, client=FakeClaude(), today="2026-01-02")
+    assert result["dashboard_published"] is False
+    assert "The dashboard could not be updated today" in pipeline[0][2]
+
+    pipeline.clear()
+    monkeypatch.setattr(publish, "push", lambda d, message: True)
+    monkeypatch.setattr(publish, "wait_until_live", lambda url, page: False)  # Pages slower than 10 minutes
+    daily.run(pages_dir=pages, client=FakeClaude(), today="2026-01-02")
+    assert "still being put online" in pipeline[0][2]
