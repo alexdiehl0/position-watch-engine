@@ -146,10 +146,11 @@ def cmd_email_preview(args):
     calls = {
         k: [{"symbol": s, **v} for s, v in (sugg.get(k) or {}).items()] for k in ("holdings", "etfs", "candidates")
     }
-    totals = pnl.compute(holdings, latest, latest.get("fx"))["totals"]
+    money = pnl.compute(holdings, latest, latest.get("fx"))
     day = sugg["date"]
-    msg = documents.email(day, latest, calls, totals, settings.report_url(day), publish.email_link(),
-                          args.dashboard_published, names={r["symbol"]: r.get("name") for r in holdings})  # fmt: skip
+    msg = documents.email(day, latest, calls, money["totals"], settings.report_url(day), publish.email_link(),
+                          args.dashboard_published, names={r["symbol"]: r.get("name") for r in holdings},
+                          positions={p["symbol"]: p for p in money["positions"]})  # fmt: skip
     Path(args.html).write_text(msg["html"])
     Path(args.text).write_text(msg["text"])
     _print({"subject": msg["subject"], "html": args.html, "text": args.text})

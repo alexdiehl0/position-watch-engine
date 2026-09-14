@@ -9,6 +9,9 @@ Value {{ totals.value_usd | usd }}  ·  Return {{ totals.pnl_usd | usd(signed=tr
 {% for r in rows %}
 
 {{ r.label }}  {{ r.symbol }} — {{ r.name }}
+{% if r.stats %}
+{{ r.stats.line }}
+{% endif %}
 {{ r.one_line }}
 {% endfor %}
 {% endif %}

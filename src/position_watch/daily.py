@@ -107,7 +107,8 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
 
         step("write report")
         holdings, latest, _ = load_inputs()
-        totals = pnl.compute(holdings, latest, latest.get("fx"))["totals"]
+        money = pnl.compute(holdings, latest, latest.get("fx"))
+        totals = money["totals"]
         summary_line = pnl.summary_line(totals)
         report_path = settings.reports_dir() / f"{day}-review.md"
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +135,8 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
             step("send email")
             msg = documents.email(day, results, calls, totals, report_url=settings.report_url(day),
                                   dashboard_url=publish.email_link(), dashboard_published=published, notes=notes,
-                                  names={r["symbol"]: r.get("name") for r in holdings})  # fmt: skip
+                                  names={r["symbol"]: r.get("name") for r in holdings},
+                                  positions={p["symbol"]: p for p in money["positions"]})  # fmt: skip
             mail.send(people.recipients(), msg["subject"], msg["text"], html=msg["html"])
 
         return {"date": day, "model": usage["model"], "tokens": usage, "estimated_usd": usage["estimated_usd"],

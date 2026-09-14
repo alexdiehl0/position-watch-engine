@@ -53,6 +53,13 @@
       <span style="font-size:16px;font-weight:700;margin-left:8px;">{{ r.symbol }}</span>
       <span style="font-size:13px;color:#6b7280;margin-left:6px;">{{ r.name }}</span>
     </div>
+    {% if r.stats %}
+    <div style="font-size:13px;color:#6b7280;margin-top:6px;">
+      {% if r.stats.perf_pct is not none %}<span style="font-weight:700;color:{{ r.stats.perf_fg }};">{{ r.stats.perf_pct | pct }}</span> since you bought{% if r.stats.perf_currency %} (in {{ r.stats.perf_currency }}){% endif %}{% endif %}
+      {% if r.stats.perf_pct is not none and r.stats.vol_pct is not none %}&nbsp;&middot;&nbsp;{% endif %}
+      {% if r.stats.vol_pct is not none %}Volatility <span style="font-weight:700;color:#374151;">{{ "%.0f" | format(r.stats.vol_pct) }}%</span> ({{ r.stats.vol_level }}){% endif %}
+    </div>
+    {% endif %}
     <div style="font-size:14px;line-height:1.5;color:#374151;margin-top:8px;">{{ r.one_line }}</div>
   </td></tr>
   {% endfor %}
