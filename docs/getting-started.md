@@ -8,7 +8,7 @@ This sets up Position Watch for **your** portfolio, on **your** accounts: your d
 |---|---|---|
 | GitHub account | github.com | Your private portfolio repository and the daily schedule |
 | Anthropic API key | console.anthropic.com → API keys (add a payment method) | The daily and monthly Claude calls |
-| Finnhub key | finnhub.io (free) | Ratios, volatility, news, the watchlist screen |
+| Finnhub key | finnhub.io (free) | Ratios, news, the watchlist screen |
 | Financial Modeling Prep key | financialmodelingprep.com (free) | Extra fundamentals for large stocks |
 | Gmail app password | myaccount.google.com → Security → 2-Step Verification → App passwords | Sending your daily email and reading your replies |
 
