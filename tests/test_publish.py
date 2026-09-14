@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+import subprocess
 
 import pytest
 from cryptography.exceptions import InvalidTag
@@ -57,3 +58,43 @@ def test_locked_page_leaks_nothing(tmp_path, monkeypatch):
         assert secret not in outside
     assert "US Stock Inc" in _decrypt(payload, "test passcode")
     assert (tmp_path / ".nojekyll").exists()
+
+
+def test_push_sends_the_page_once_and_skips_when_nothing_changed(tmp_path, monkeypatch):
+    monkeypatch.setenv("DASHBOARD_PASSCODE", "test passcode")
+    remote, pages = tmp_path / "remote.git", tmp_path / "pages"
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    subprocess.run(["git", "clone", str(remote), str(pages)], check=True, capture_output=True)
+
+    publish.publish(pages)
+    assert publish.push(pages, "Dashboard 2026-01-02") is True
+    assert publish.push(pages, "Dashboard 2026-01-02") is False  # nothing new
+    log = subprocess.run(["git", "log", "--all", "--format=%s"], cwd=remote, capture_output=True, text=True).stdout
+    assert log.splitlines() == ["Dashboard 2026-01-02"]
+
+
+def test_push_failure_is_reported(tmp_path, monkeypatch):
+    monkeypatch.setenv("DASHBOARD_PASSCODE", "test passcode")
+    publish.publish(tmp_path)  # not a git checkout
+    with pytest.raises(publish.PushFailed, match="git add"):
+        publish.push(tmp_path, "Dashboard 2026-01-02")
+
+
+def test_wait_until_live_needs_the_exact_file(tmp_path):
+    page = tmp_path / "index.html"
+    page.write_text("today")
+
+    def served(*bodies):
+        items = iter(bodies)
+
+        def fetch(url):
+            assert "?v=" in url  # past the CDN's cached copy
+            item = next(items)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+        return fetch
+
+    assert publish.wait_until_live("https://x/", page, every=0, fetch=served(OSError("404"), b"yesterday", b"today"))
+    assert not publish.wait_until_live("https://x/", page, timeout=0, every=0, fetch=served(b"yesterday"))

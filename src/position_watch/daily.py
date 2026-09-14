@@ -3,12 +3,12 @@
     python -m position_watch daily [--pages-dir DIR] [--no-email]
 
 Run by the GitHub Actions cron job (.github/workflows/daily.yml), which then
-commits the workspace and pushes the locked dashboard. Steps:
+commits the workspace. Steps:
 
   1. check secrets            6. write the report
   2. read yesterday's notes   7. build the dashboard
-  3. read feedback (Gmail)    8. publish the locked copy (if --pages-dir)
-  4. gather evidence          9. email the summary
+  3. read feedback (Gmail)    8. publish the locked copy (if --pages-dir): push it, wait until it's live
+  4. gather evidence          9. email the summary -- only now, so its button opens today's page
   5. decide calls (Claude) and save them, the history, handoff, preferences
 
 If a step fails, the run writes a short failure note (<date>-review-FAILED.md), emails the
@@ -18,6 +18,7 @@ and exits non-zero so the workflow shows it.
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from position_watch import handoff, llm, mail, people, reasoning, review, settings, suggestion_log
 from position_watch.analysis import pnl
@@ -127,11 +128,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         published = False
         if pages_dir:
             step("publish dashboard")
-            try:
-                publish.publish(pages_dir)
-                published = True
-            except publish.PasscodeMissing as exc:
-                notes.append(str(exc))
+            published = _publish_dashboard(pages_dir, day, notes)
 
         if send_email:
             step("send email")
@@ -148,6 +145,30 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         error = settings.redact(f"{type(exc).__name__}: {exc}")
         _report_failure(day, current["step"], error, send_email)
         raise StepFailed(current["step"], error) from exc
+
+
+def _publish_dashboard(pages_dir, day: str, notes: list) -> bool:
+    """Writes, pushes and waits for the locked page, so the email only goes out
+    once its button opens today's dashboard. Problems become a note in the email
+    rather than a failed run: the email is the part that must arrive."""
+    try:
+        page = publish.publish(pages_dir)
+    except publish.PasscodeMissing as exc:
+        notes.append(str(exc))
+        return False
+    if not (Path(pages_dir) / ".git").exists():  # a plain folder: written, nothing to push
+        return True
+    try:
+        publish.push(pages_dir, f"Dashboard {day}")
+    except publish.PushFailed as exc:
+        print(exc, flush=True)
+        notes.append("The dashboard could not be updated today, so its button still opens the last one that was.")
+        return False
+    url = settings.dashboard_url()
+    if url and not publish.wait_until_live(url, page):
+        notes.append("Today's dashboard was still being put online when this email was sent: "
+                     "if the button opens yesterday's, try again in a few minutes.")  # fmt: skip
+    return True
 
 
 def _report_failure(day: str, step: str, error: str, send_email: bool):

@@ -18,6 +18,10 @@ repo, a report, an email or a log. If it is missing, nothing is published --
 there is no unencrypted fallback.
 
     python -m position_watch dashboard publish <path to the dashboard repo checkout>
+
+The daily run then pushes the checkout (push()) and waits until GitHub Pages
+serves exactly that file (wait_until_live()) before it sends the email, so the
+email's button never opens an older page.
 """
 
 import base64
@@ -26,6 +30,9 @@ import hmac
 import html
 import json
 import os
+import subprocess
+import time
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -204,3 +211,50 @@ def publish(out_dir) -> Path:
     (out / "index.html").write_text(locked_page(render.build_page(), passcode))
     (out / ".nojekyll").touch()
     return out / "index.html"
+
+
+class PushFailed(RuntimeError):
+    """The locked page was written but could not be pushed to the dashboard repository."""
+
+
+BOT = ("Position Watch", "41898282+github-actions[bot]@users.noreply.github.com")
+
+
+def push(out_dir, message: str) -> bool:
+    """Commits and pushes the locked page in the dashboard checkout `out_dir`.
+    Returns False when there was nothing new to push."""
+
+    def git(*args, ok=(0,)):
+        done = subprocess.run(["git", "-C", str(out_dir), "-c", f"user.name={BOT[0]}", "-c", f"user.email={BOT[1]}",
+                               *args], capture_output=True, text=True)  # fmt: skip
+        if done.returncode not in ok:
+            raise PushFailed(settings.redact(f"git {args[0]}: {(done.stderr or done.stdout).strip()}"))
+        return done.returncode
+
+    git("add", "index.html", ".nojekyll")
+    if git("diff", "--cached", "--quiet", ok=(0, 1)) == 0:
+        return False
+    git("commit", "-m", message)
+    git("push", "origin", "HEAD")
+    return True
+
+
+def _fetch(url: str) -> bytes:
+    with urllib.request.urlopen(url, timeout=20) as r:
+        return r.read()
+
+
+def wait_until_live(url: str, page: Path, timeout: float = 600, every: float = 15, fetch=_fetch) -> bool:
+    """Polls the public address until it serves exactly `page` (GitHub Pages
+    usually takes a minute or two after a push). False if it hasn't by `timeout` seconds."""
+    want = hashlib.sha256(Path(page).read_bytes()).digest()
+    deadline = time.monotonic() + timeout
+    while True:
+        try:  # a fresh query string gets past the CDN's cached copy
+            if hashlib.sha256(fetch(f"{url}?v={time.time_ns()}")).digest() == want:
+                return True
+        except Exception:
+            pass  # not deployed yet, or a network blip: keep trying until the deadline
+        if time.monotonic() + every > deadline:
+            return False
+        time.sleep(every)
