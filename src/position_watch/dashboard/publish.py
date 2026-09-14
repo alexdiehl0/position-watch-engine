@@ -88,7 +88,7 @@ LOCKED_PAGE = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>AI Stock Portfolio Review</title>
+<title>AI Stock Analyst</title>
 <style>
   :root { --bg: #f5f6f7; --surface: #ffffff; --line: #e1e4e8; --ink: #11161c; --ink-3: #7d8792;
           --btn: #1c5cab; --btn-ink: #ffffff; --crit: #a42828; color-scheme: light; }
@@ -101,7 +101,7 @@ LOCKED_PAGE = """<!DOCTYPE html>
          background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   form { width: 100%%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
          padding: 24px; display: flex; flex-direction: column; gap: 12px; }
-  h1 { margin: 0; font: 600 1.4rem/1.2 Georgia, "Times New Roman", serif; }
+  h1 { margin: 0; font: 600 1.4rem/1.2 Georgia, "Times New Roman", serif; letter-spacing: 0.03em; }
   p { margin: 0; color: var(--ink-3); font-size: 0.85rem; }
   label { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
   input[type=password] { width: 100%%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--line);
@@ -116,7 +116,7 @@ LOCKED_PAGE = """<!DOCTYPE html>
 </head>
 <body>
 <form id="unlock">
-  <h1>AI Stock Portfolio Review</h1>
+  <h1>AI STOCK ANALYST</h1>
   <p>Updated %(updated)s. Open it from the button in today&rsquo;s email, or enter the passcode.</p>
   <label for="pass">Passcode</label>
   <input type="password" id="pass" autocomplete="current-password" required>

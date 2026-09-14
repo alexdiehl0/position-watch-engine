@@ -20,6 +20,7 @@ def test_page_has_every_section_and_the_note():
     ):
         assert f'id="{section}"' in page
     assert "Not financial advice." in page
+    assert "<h1>AI STOCK ANALYST</h1>" in page and "<title>AI Stock Analyst</title>" in page
 
 
 def test_outside_text_is_escaped_and_bad_links_are_neutralised():
