@@ -55,7 +55,7 @@ a:focus-visible, .btn:focus-visible { outline: 2px solid var(--link); outline-of
             gap: 12px 24px; border-bottom: 2px solid var(--line-strong); padding-bottom: 14px; }
 .eyebrow { display: block; font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
            letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 2px; }
-.masthead h1 { font-size: clamp(1.7rem, 4.5vw, 2.3rem); letter-spacing: -0.01em; line-height: 1.1; }
+.masthead h1 { font-size: clamp(1.7rem, 4.5vw, 2.3rem); letter-spacing: 0.03em; line-height: 1.1; }
 .masthead .meta { color: var(--ink-2); font-size: 0.85rem; text-align: right; }
 .masthead .meta .num { color: var(--ink); }
 

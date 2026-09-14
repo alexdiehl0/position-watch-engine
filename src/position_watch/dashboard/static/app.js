@@ -188,7 +188,7 @@
     btn.disabled = true; say('Sending\u2026');
     try {
       await mcp.callTool(gmail.server, 'send_message', {
-        to: [TO], subject: SUBJECT, body: note + '\n\n\u2014 sent from Position Watch'
+        to: [TO], subject: SUBJECT, body: note + '\n\n\u2014 sent from the AI Stock Analyst dashboard'
       });
       text.value = '';
       say('Sent. Tomorrow\u2019s 7am review will read it.', 'ok');
