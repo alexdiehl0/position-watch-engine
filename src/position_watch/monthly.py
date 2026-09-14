@@ -194,5 +194,6 @@ def run(send_email: bool = True, client=None, today: date | None = None, mode=No
         body = documents.render_template("monthly_email.txt", **ctx,
                                          report_url=f"{link.replace('/tree/', '/blob/', 1)}/monthly/{month}-review.md"
                                          if link else None)  # fmt: skip
-        mail.send(people.recipients(), f"Portfolio monthly review {month}", body)
+        name = datetime.strptime(month, "%Y-%m").strftime("%B %Y")
+        mail.send(people.recipients(), f"{documents.TITLE} — Monthly — {name}", body)
     return {"month": month, "report": str(path), "estimated_usd": usage["estimated_usd"], "symbols": len(looked_back)}

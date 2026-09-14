@@ -12,7 +12,7 @@ commits the workspace and pushes the locked dashboard. Steps:
   5. decide calls (Claude) and save them, the history, handoff, preferences
 
 If a step fails, the run writes a short failure note (<date>-review-FAILED.md), emails
-"Portfolio Review <date> -- FAILED" with the step and the (redacted) error,
+"AI STOCK PORTFOLIO REVIEW — <date> — FAILED" with the step and the (redacted) error,
 and exits non-zero so the workflow shows it.
 """
 
@@ -135,12 +135,10 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
 
         if send_email:
             step("send email")
-            body = documents.email_body(review=results, calls=calls, summary_line=summary_line,
-                                        report_url=settings.report_url(day), dashboard_url=settings.dashboard_url(),
-                                        dashboard_published=published)  # fmt: skip
-            if notes:
-                body += "\n\nNotes from this run:\n" + "\n".join(f"- {n}" for n in notes)
-            mail.send(people.recipients(), f"Portfolio Review {day}", body)
+            msg = documents.email(day, results, calls, totals, report_url=settings.report_url(day),
+                                  dashboard_url=publish.email_link(), dashboard_published=published, notes=notes,
+                                  names={r["symbol"]: r.get("name") for r in holdings})  # fmt: skip
+            mail.send(people.recipients(), msg["subject"], msg["text"], html=msg["html"])
 
         return {"date": day, "model": usage["model"], "tokens": usage, "estimated_usd": usage["estimated_usd"],
                 "report": str(report_path), "dashboard_published": published,
@@ -164,7 +162,7 @@ def _report_failure(day: str, step: str, error: str, send_email: bool):
     path.write_text(text)
     if send_email:
         try:
-            mail.send(people.recipients(), f"Portfolio Review {day} -- FAILED",
+            mail.send(people.recipients(), documents.subject(day, "FAILED"),
                       f"Today's review stopped at: {step}\n\nError: {error}\n\n"
                       "Nothing was sent to the dashboard today. The workflow log has the details.")  # fmt: skip
         except Exception as mail_exc:  # the workflow still fails visibly

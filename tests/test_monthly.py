@@ -45,7 +45,7 @@ def test_facts_need_no_api(workspace, monkeypatch):
 
 def test_monthly_run_writes_report_snapshot_and_email(workspace, monkeypatch):
     sent = []
-    monkeypatch.setattr(mail, "send", lambda to, subject, body: sent.append((subject, body)))
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: sent.append((subject, body)))
     monkeypatch.setattr(monthly.suggestion_log, "load_entries", lambda: LOG)
     result = monthly.run(client=FakeClaude(calls=ANSWER), today=date(2026, 2, 1))
 
@@ -55,5 +55,5 @@ def test_monthly_run_writes_report_snapshot_and_email(workspace, monkeypatch):
         assert expected in report
     assert (workspace / "state" / "monthly_snapshots.csv").read_text().startswith("month,value_usd")
     assert "monthly" in (workspace / "state" / "api_usage.csv").read_text()
-    assert sent[0][0] == "Portfolio monthly review 2026-01" and "Strengths" in sent[0][1]
+    assert sent[0][0] == "AI STOCK PORTFOLIO REVIEW — Monthly — January 2026" and "Strengths" in sent[0][1]
     assert result["month"] == "2026-01"

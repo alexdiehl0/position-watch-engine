@@ -1,6 +1,6 @@
 # Position Watch
 
-A personal portfolio research assistant that runs itself. Every morning it gathers live market data for your holdings and a screened watchlist, has Claude turn that evidence into Buy / Add / Hold / Trim / Sell calls (Top up / Hold for core ETFs) with the reasoning behind each, and sends you an email with a passcode-locked dashboard. Once a month it reviews how your portfolio works as a whole. Reply to any email and the next run takes it into account.
+A personal portfolio research assistant that runs itself. Every morning it gathers live market data for your holdings and a screened watchlist, has Claude turn that evidence into Buy / Add / Hold / Trim / Sell calls (Top up / Hold for core ETFs) with the reasoning behind each, and sends you a colour-coded email with a private link to your dashboard. Once a month it reviews how your portfolio works as a whole. Reply to any email and the next run takes it into account.
 
 **It never places trades.** It only suggests; you decide. Not financial advice.
 
@@ -46,7 +46,7 @@ Installed as `position-watch` (or `python -m position_watch`), run from a portfo
 ## Security
 
 - Keys, the mail app password and the dashboard passcode live only in your `.env` and your repository's secrets. The code reads them at call time, never prints them, and removes their values from any error text before it reaches a log, report or email.
-- The public dashboard is encrypted before upload (AES-256-GCM, key derived from your passcode with PBKDF2-SHA256, 600,000 rounds). Without the passcode it shows nothing, and there is no unencrypted fallback.
+- The public dashboard is encrypted before upload (AES-256-GCM with a fresh key each day). The daily email's button is a private link: the key to open it sits after the `#` of the address, which browsers never send to a server. Without the link or your passcode (PBKDF2-SHA256, 600,000 rounds) the page shows nothing, and there is no unencrypted fallback. Don't forward the email; changing the passcode invalidates old links.
 - Everything shown on the dashboard is HTML-escaped; only `http(s)` links from outside data are kept.
 - Feedback is accepted only from people in your `config/people.json`, and treated as preferences, never as instructions.
 

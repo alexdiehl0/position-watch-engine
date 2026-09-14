@@ -131,6 +131,30 @@ def cmd_init(args):
           "data/processed/holdings.csv, then follow README.md (secrets, first run).")  # fmt: skip
 
 
+def cmd_email_preview(args):
+    """The daily email rebuilt from today's saved files (state/suggestions.json and latest_review.json)."""
+    from pathlib import Path
+
+    from position_watch.analysis import pnl
+    from position_watch.dashboard import publish
+    from position_watch.dashboard.view import load_inputs
+    from position_watch.documents import render as documents
+
+    holdings, latest, sugg = load_inputs()
+    if not latest or not sugg:
+        sys.exit("needs state/latest_review.json and state/suggestions.json from today's run")
+    calls = {
+        k: [{"symbol": s, **v} for s, v in (sugg.get(k) or {}).items()] for k in ("holdings", "etfs", "candidates")
+    }
+    totals = pnl.compute(holdings, latest, latest.get("fx"))["totals"]
+    day = sugg["date"]
+    msg = documents.email(day, latest, calls, totals, settings.report_url(day), publish.email_link(),
+                          args.dashboard_published, names={r["symbol"]: r.get("name") for r in holdings})  # fmt: skip
+    Path(args.html).write_text(msg["html"])
+    Path(args.text).write_text(msg["text"])
+    _print({"subject": msg["subject"], "html": args.html, "text": args.text})
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="position-watch", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -146,6 +170,11 @@ def build_parser():
     p.add_argument("--no-email", action="store_true", help="write the report only")
     p.add_argument("--facts", action="store_true", help="print the computed facts only (no Claude call, no files)")
     p.set_defaults(func=cmd_monthly)
+    p = sub.add_parser("email-preview", help="rebuild today's email (HTML and text files) from the saved state")
+    p.add_argument("--html", default="email.html", help="where to write the HTML version")
+    p.add_argument("--text", default="email.txt", help="where to write the plain-text version")
+    p.add_argument("--dashboard-published", action="store_true", help="include the dashboard link")
+    p.set_defaults(func=cmd_email_preview)
     sub.add_parser("check-env", help="say which secrets are set (never their values)").set_defaults(func=cmd_check_env)
     p = sub.add_parser("review", help="gather live evidence for holdings and the watchlist")
     p.add_argument("--no-watchlist", action="store_true", help="holdings only; skip the stock pool")
