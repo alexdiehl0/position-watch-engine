@@ -5,8 +5,8 @@ protocols any provider offers, so switching to another mailbox is a matter of
 MAIL_SMTP_HOST / MAIL_IMAP_HOST. Credentials come from the environment
 (MAIL_USER, MAIL_APP_PASSWORD) and are never printed.
 
-Feedback is every "Portfolio feedback" message and every reply to a
-"Portfolio Review" email from the last 30 days, from someone in the people
+Feedback is every "Portfolio feedback" message and every reply to a daily
+review email from the last 30 days, from someone in the people
 file, that hasn't been used before. Used message IDs are recorded in the
 workspace's state/feedback_used.json so nothing is applied twice.
 """
@@ -24,7 +24,9 @@ from email.message import EmailMessage
 
 from position_watch import people, settings
 
-FEEDBACK_SUBJECTS = ("Portfolio feedback", "Re: Portfolio Review")
+# Replies to the daily email (current and earlier subject lines) and notes from the dashboard feedback box.
+FEEDBACK_SUBJECTS = ("Portfolio feedback", "Re: AI STOCK PORTFOLIO REVIEW", "Re: Portfolio Review")
+SENDER_NAME = "AI Stock Portfolio Review"
 
 
 class MailNotConfigured(RuntimeError):
@@ -38,11 +40,15 @@ def _credentials():
     return user, password
 
 
-def send(to: list, subject: str, body: str):
+def send(to: list, subject: str, body: str, html: str | None = None):
+    """Plain-text body, plus an HTML version when given (mail apps show the best they can)."""
     user, password = _credentials()
     msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = user, ", ".join(to), subject
+    msg["From"] = email.utils.formataddr((SENDER_NAME, user))
+    msg["To"], msg["Subject"] = ", ".join(to), subject
     msg.set_content(body)
+    if html:
+        msg.add_alternative(html, subtype="html")
     with smtplib.SMTP_SSL(os.environ.get("MAIL_SMTP_HOST", "smtp.gmail.com"), 465, timeout=30) as smtp:
         smtp.login(user, password)
         smtp.send_message(msg)

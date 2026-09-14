@@ -1,35 +1,30 @@
-{{ summary_line }}
+{{ title }}
+{{ long_date }}
 
-Your holdings
-{% for c in calls.holdings %}
-{% set d = review.holdings[c.symbol] %}
-{{ c.symbol }} — {{ d.get("company_name") or c.symbol }} ({{ d.get("sector") or "sector n/a" }}): {{ label(c.action) | upper }} — {{ c.one_line }}
+Value {{ totals.value_usd | usd }}  ·  Return {{ totals.pnl_usd | usd(signed=true) }} ({{ totals.pnl_pct | pct }})  ·  Dividends {{ totals.dividends_usd | usd }}
+{% for heading, rows in sections %}
+{% if rows %}
+
+{{ heading | upper }}
+{% for r in rows %}
+
+{{ r.label }}  {{ r.symbol }} — {{ r.name }}
+{{ r.one_line }}
 {% endfor %}
-
-Core ETFs
-{% for c in calls.etfs %}
-{{ c.symbol }} — {{ review.etfs[c.symbol].name }}: {{ label(c.action) | upper }} — {{ c.one_line }}
-{% endfor %}
-
-Equities to watch
-{% for c in calls.candidates %}
-{% set d = review.candidates[c.symbol] %}
-{{ c.symbol }} — {{ d.get("company_name") or c.symbol }} ({{ d.get("sector") or "sector n/a" }}): {{ label(c.action) | upper }} — {{ c.one_line }}
-    What it does: {{ d.get("description") or "not returned" }}
-{% endfor %}
-
-{% if report_url %}
-Full report: {{ report_url }}
-(opens only for people with access to the private repository)
 {% endif %}
-{% if dashboard_published and dashboard_url %}
-Dashboard (needs your passcode): {{ dashboard_url }}
-{% elif dashboard_published %}
-The locked dashboard was updated.
-{% else %}
+{% endfor %}
+
+{% if dashboard_url %}
+Your dashboard (private link, please don't forward): {{ dashboard_url }}
+{% elif not dashboard_published %}
 The dashboard was not updated today.
 {% endif %}
+{% if report_url %}
+Full report: {{ report_url }}
+{% endif %}
 
-Reply to this email to leave feedback for tomorrow's run.
-
+{% for n in notes %}
+Note: {{ n }}
+{% endfor %}
+Reply to this email to tell tomorrow's review what to weigh differently.
 {{ note }}

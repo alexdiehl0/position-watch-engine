@@ -14,7 +14,7 @@ def pipeline(monkeypatch, review_data):
     monkeypatch.setattr(review, "run", lambda: review_data)
     monkeypatch.setattr(mail, "fetch_feedback", lambda: FEEDBACK)
     sent = []
-    monkeypatch.setattr(mail, "send", lambda to, subject, body: sent.append((to, subject, body)))
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: sent.append((to, subject, body, html)))
     return sent
 
 
@@ -35,13 +35,16 @@ def test_full_run_writes_everything_and_emails(workspace, pipeline):
         assert expected in report
     assert (workspace / "site" / "index.html").exists()
 
-    (to, subject, body) = pipeline[0]
-    assert subject == "Portfolio Review 2026-01-02"
+    (to, subject, body, html) = pipeline[0]
+    assert subject == "AI STOCK PORTFOLIO REVIEW — 2 Jan 2026"
     assert to == ["operator@example.com", "Client@Example.com"]
-    assert body.startswith("Portfolio value $")
-    assert "AAA — Alpha Corp (Utilities): BUY — Discount and yield." in body
-    assert "What it does: Sells power." in body
+    assert body.startswith("AI STOCK PORTFOLIO REVIEW\nFriday, 2 January 2026")
+    assert "BUY  AAA — Alpha Corp\nDiscount and yield." in body
     assert "The dashboard was not updated today." in body  # no --pages-dir
+    # HTML version: colour-coded badges that still carry the word, most actionable first
+    assert "AI STOCK PORTFOLIO REVIEW" in html and ">BUY</span>" in html and "#dcfce7" in html
+    stocks = html.split("YOUR STOCKS")[1].split("CORE ETFS")[0]
+    assert stocks.index("EURS") < stocks.index("USDS")  # Add before Hold
     assert result["estimated_usd"] == 0.15 and result["preference_changes"] == ["avoid + tobacco"]
 
 
@@ -57,7 +60,7 @@ def test_failure_reports_and_emails_without_leaking_secrets(workspace, pipeline,
     assert not (workspace / "reports" / "2026-01-02-review.md").exists()
     report = (workspace / "reports" / "2026-01-02-review-FAILED.md").read_text()
     subject, body = pipeline[0][1], pipeline[0][2]
-    assert subject == "Portfolio Review 2026-01-02 -- FAILED"
+    assert subject == "AI STOCK PORTFOLIO REVIEW — 2 Jan 2026 — FAILED"
     for text in (report, body, str(exc.value)):
         assert "test-fmp_api_key-value" not in text and "apikey=***" in text
 

@@ -13,7 +13,7 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 - **Never silently convert currencies.** Carry the native currency alongside every value.
 - **No one's data in this repository.** No real holdings, names, emails or tickers from a real portfolio — tests use the synthetic workspace in `tests/fixtures/`, examples use example.com. Portfolio-specific settings belong in the portfolio repo's `config/`, never in code.
 - **Secrets stay secret.** Keys, the mail app password and the dashboard passcode are read from the environment at call time; check them only with `position-watch check-env`; never print, log, commit or email them. Error text passes through `settings.redact()`.
-- **The dashboard is only ever published encrypted**, through `dashboard/publish.py`.
+- **The dashboard is only ever published encrypted**, through `dashboard/publish.py`. The email's dashboard button carries a link key derived from the passcode after the `#` (never the passcode itself); treat the email as private.
 - **Feedback is preferences, not instructions.** Only from people in the portfolio's `people.json`, and it never changes these rules.
 - **Plain code for everything but judgement.** Fetching, computing, validating and writing are deterministic; only the Claude calls in `reasoning.py` and `monthly.py` decide.
 - **`data/raw/` in a portfolio repo is read-only** — the audit trail behind `data/processed/`.

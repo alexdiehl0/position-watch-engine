@@ -67,7 +67,7 @@ The email is complete on its own; the dashboard adds charts and tables you can o
    gh variable set PAGES_REPOSITORY --body "<your-github-name>/my-dashboard"
    ```
 
-The page is encrypted before it's published: anyone can reach the address, but only the passcode opens it.
+The page is encrypted before it's published: anyone can reach the address, but only the button in your daily email (a private link) or the passcode opens it. Don't forward the email; changing the passcode invalidates old links.
 
 ## Keeping up to date
 

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>{{ title }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827;">
+
+  <tr><td style="padding:28px 28px 8px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.14em;color:#1d4ed8;">{{ title }}</div>
+    <div style="font-size:22px;font-weight:700;margin-top:6px;">{{ long_date }}</div>
+  </td></tr>
+
+  <tr><td style="padding:16px 28px 8px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border-radius:10px;">
+      <tr>
+        <td style="padding:14px 16px;width:34%;">
+          <div style="font-size:11px;letter-spacing:0.08em;color:#6b7280;">VALUE</div>
+          <div style="font-size:18px;font-weight:700;margin-top:2px;">{{ totals.value_usd | usd }}</div>
+        </td>
+        <td style="padding:14px 16px;width:33%;">
+          <div style="font-size:11px;letter-spacing:0.08em;color:#6b7280;">RETURN</div>
+          <div style="font-size:18px;font-weight:700;margin-top:2px;color:{{ '#166534' if (totals.pnl_usd or 0) >= 0 else '#991b1b' }};">{{ totals.pnl_usd | usd(signed=true) }}</div>
+          <div style="font-size:12px;color:#6b7280;">{{ totals.pnl_pct | pct }}</div>
+        </td>
+        <td style="padding:14px 16px;width:33%;">
+          <div style="font-size:11px;letter-spacing:0.08em;color:#6b7280;">DIVIDENDS</div>
+          <div style="font-size:18px;font-weight:700;margin-top:2px;">{{ totals.dividends_usd | usd }}</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:10px 28px 0;font-size:12px;color:#6b7280;">
+    {% for text, fg, bg in legend %}<span style="display:inline-block;margin:0 12px 4px 0;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:{{ fg }};vertical-align:middle;"></span>&nbsp;{{ text }}</span>{% endfor %}
+  </td></tr>
+
+  {% for heading, rows in sections %}
+  {% if rows %}
+  <tr><td style="padding:26px 28px 6px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.1em;color:#374151;">{{ heading | upper }}</div>
+  </td></tr>
+  {% for r in rows %}
+  <tr><td style="padding:14px 28px;border-top:1px solid #eef0f3;">
+    <div>
+      <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.05em;background:{{ r.bg }};color:{{ r.fg }};">{{ r.label }}</span>
+      <span style="font-size:16px;font-weight:700;margin-left:8px;">{{ r.symbol }}</span>
+      <span style="font-size:13px;color:#6b7280;margin-left:6px;">{{ r.name }}</span>
+    </div>
+    <div style="font-size:14px;line-height:1.5;color:#374151;margin-top:8px;">{{ r.one_line }}</div>
+  </td></tr>
+  {% endfor %}
+  {% endif %}
+  {% endfor %}
+
+  <tr><td style="padding:26px 28px 6px;">
+    {% if dashboard_url %}<a href="{{ dashboard_url }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:8px;margin:0 8px 8px 0;">Open dashboard</a>{% endif %}
+    {% if report_url %}<a href="{{ report_url }}" style="display:inline-block;background:#ffffff;color:#1d4ed8;text-decoration:none;font-weight:700;font-size:14px;padding:10px 17px;border-radius:8px;border:1px solid #bfdbfe;margin:0 8px 8px 0;">Full report</a>{% endif %}
+    {% if dashboard_url %}<div style="font-size:12px;color:#6b7280;margin-top:2px;">The button is a private link that opens your dashboard directly &mdash; please don&rsquo;t forward this email.</div>{% elif not dashboard_published %}<div style="font-size:12px;color:#6b7280;">The dashboard was not updated today.</div>{% endif %}
+  </td></tr>
+
+  <tr><td style="padding:18px 28px 28px;font-size:13px;line-height:1.5;color:#6b7280;border-top:1px solid #eef0f3;">
+    {% if notes %}<div style="margin-bottom:10px;">{% for n in notes %}Note: {{ n }}<br>{% endfor %}</div>{% endif %}
+    Reply to this email to tell tomorrow's review what to weigh differently.<br>
+    {{ note }}
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
