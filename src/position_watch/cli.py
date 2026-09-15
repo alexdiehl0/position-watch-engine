@@ -146,6 +146,7 @@ def cmd_email_preview(args):
     calls = {
         k: [{"symbol": s, **v} for s, v in (sugg.get(k) or {}).items()] for k in ("holdings", "etfs", "candidates")
     }
+    calls["market_briefing"] = sugg.get("market_briefing") or []
     money = pnl.compute(holdings, latest, latest.get("fx"))
     day = sugg["date"]
     msg = documents.email(day, latest, calls, money["totals"], settings.report_url(day), publish.email_link(),

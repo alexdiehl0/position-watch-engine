@@ -39,7 +39,8 @@ Last closes as of each market's own date [yfinance]; yields move in basis points
 
 {% endif %}
 {% for b in markets.briefing %}
-- **{{ b.development }}** {{ b.impact }} *Affects: {{ b.affects | join(", ") or "none named" }}.* Sources: {% for h in b.sources %}[{{ h.id }} {{ h.source }}]({{ h.url }}){% if not loop.last %}, {% endif %}{% endfor %}
+- **{{ b.development }}** {{ b.impact }} *Affects: {{ b.affects | join(", ") or "none named" }}.* Sources: {% for h in b.sources %}[{{ h.id }} {{ h.source }}]({{ h.url }}){{ ", " if not loop.last }}{% endfor %}
+
 {% endfor %}
 
 {% endif %}

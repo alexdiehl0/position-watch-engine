@@ -60,10 +60,21 @@ SCHEMA = _obj(
             "description": "The 3-5 market or world developments most likely to move these holdings; [] if none.",
             "items": _obj(
                 {
-                    "development": {"type": "string", "description": "One sentence: what happened."},
-                    "impact": {"type": "string", "description": "One sentence: how it bears on the symbols named."},
-                    "affects": {"type": "array", "items": {"type": "string"}},
-                    "headline_ids": {"type": "array", "items": {"type": "string"}},
+                    "development": {
+                        "type": "string",
+                        "description": "What happened, in one short sentence (max 20 words).",
+                    },
+                    "impact": {"type": "string", "description": "How it bears on the symbols named (max 30 words)."},
+                    "affects": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "1-6 symbols, holdings first.",
+                    },
+                    "headline_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The 1-3 best headlines.",
+                    },
                 }
             ),
         },
@@ -107,7 +118,9 @@ say so and Hold.
 last day and a half of market and geopolitical headlines, each with an id (M1, M2...). In market_briefing, pick \
 the 3-5 developments most likely to move this client's holdings, ETFs or watchlist -- central banks and rates, \
 oil and energy, wars and sanctions, trade and tariffs, regulation, China, the dollar. For each, cite the headline \
-ids, list the symbols it affects (as given) and say how in one sentence. Use only these headlines and figures; \
+ids (the 1-3 best), list only the symbols it materially affects (as given; the client's holdings and ETFs \
+first, at most 6) and say how in one sentence. Keep each item short: the client reads it on a phone. \
+Use only these headlines and figures; \
 never add events or numbers from memory. When a development changes a call, say so in that symbol's reasoning \
 and cite the headline id, e.g. [M4]. If nothing is material, return an empty list.
 - Personalise: honour the client's preferences, yesterday's notes and new feedback explicitly, and say in the \
@@ -205,10 +218,9 @@ def _checked_briefing(items: list, review: dict) -> list:
     for item in items:
         cited = [i for i in item.get("headline_ids", []) if i in ids]
         if cited:
-            kept.append(
-                {**item, "headline_ids": cited, "affects": [s for s in item.get("affects", []) if s in symbols]}
-            )
-    return kept
+            affects = [s for s in item.get("affects", []) if s in symbols]
+            kept.append({**item, "headline_ids": cited[:3], "affects": affects[:6]})
+    return kept[:5]  # short enough to read on a phone
 
 
 def decide(review: dict, handoff: dict | None, feedback: list, date: str, client=None, mode=None) -> tuple[dict, dict]:
