@@ -52,7 +52,7 @@ gh workflow run daily.yml
 gh run watch
 ```
 
-A few minutes later — the Claude call is batched at half price, so it can take a little longer — your first "Portfolio Review" email arrives. From then on it runs every morning at 04:00 UTC, and the monthly review on the 1st. Reply to any email to tell the next run what to weigh differently.
+A few minutes later — the Claude call is batched at half price, so it can take a little longer — your first "Portfolio Review" email arrives. From then on it runs every morning at 04:17 UTC (with two later backup slots, in case GitHub skips one), and the monthly review on the 1st. Reply to any email to tell the next run what to weigh differently.
 
 ## Optional: the locked dashboard
 
