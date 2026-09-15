@@ -62,8 +62,8 @@ def get_closes(symbol: str, period: str = "3mo"):
     return df["Close"].tolist(), None
 
 
-def get_closes_many(symbols, period: str = "3mo"):
-    """Adjusted daily closes for many symbols in one request: {symbol: [closes]}."""
+def get_history_many(symbols, period: str = "3mo"):
+    """Adjusted daily closes for many symbols in one request: {symbol: [(date, close), ...]}, oldest first."""
     tickers = {instruments.yahoo_symbol(s): s for s in symbols}
     if not tickers:
         return {}, None
@@ -76,8 +76,18 @@ def get_closes_many(symbols, period: str = "3mo"):
         return None, "yfinance returned no price history for the batch"
     close = df["Close"]
     if not hasattr(close, "columns"):  # a single symbol comes back as one column
-        return {next(iter(tickers.values())): close.tolist()}, None
-    return {tickers[t]: close[t].tolist() for t in close.columns if t in tickers}, None
+        close = close.to_frame(next(iter(tickers)))
+
+    def series(column):
+        return [(ts.date().isoformat(), float(v)) for ts, v in column.items() if v == v]  # skips NaN
+
+    return {tickers[t]: series(close[t]) for t in close.columns if t in tickers}, None
+
+
+def get_closes_many(symbols, period: str = "3mo"):
+    """Adjusted daily closes for many symbols in one request: {symbol: [closes]}."""
+    history, err = get_history_many(symbols, period)
+    return ({s: [c for _, c in rows] for s, rows in history.items()} if history else history), err
 
 
 def get_recommendations(symbol: str):

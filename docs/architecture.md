@@ -21,13 +21,13 @@ flowchart TB
 
   subgraph RUN["The daily run · plain code except step 3"]
     S1["1 · read yesterday's notes<br/>and replies from known senders"]
-    S2["2 · gather evidence<br/>every figure tagged with its source"]
+    S2["2 · gather evidence<br/>figures tagged with their source<br/>company news · market backdrop"]
     S3["3 · ONE Claude Opus 5 call<br/>batched at half price · checked by code"]
     S4["4 · report · dashboard<br/>email once the page is live"]
     S1 --> S2 --> S3 --> S4
   end
 
-  MK[("Market data · free<br/>FMP → Finnhub → Yahoo<br/>ECB exchange rates")]
+  MK[("Market data and news · free<br/>FMP → Finnhub → Yahoo · ECB rates<br/>Reuters/CNBC feed · Google News")]
   PAGES["Your dashboard repo · public<br/>GitHub Pages · encrypted page only"]
   MAIL["Gmail<br/>AI STOCK PORTFOLIO REVIEW — date"]
   OP(["Operator"])
@@ -75,6 +75,7 @@ flowchart TB
     REV --> ETF["analysis/etf.py<br/>top-up evidence"]
     REV --> POOL["analysis/pool.py<br/>screen ~130 stocks<br/>pick 6 + 2"]
     REV --> FX["sources/fx.py"]
+    REV --> MKTN["analysis/markets.py · news.py<br/>snapshot · world headlines"]
   end
 
   CTX["Context for the call<br/>preferences · yesterday's notes · feedback"]
@@ -84,6 +85,7 @@ flowchart TB
     FH[("Finnhub<br/>paced under 60/min")]
     YH[("Yahoo<br/>ETFs · fallback")]
     ECB[("ECB rates<br/>api.frankfurter.dev")]
+    GN[("Google News<br/>RSS search")]
   end
 
   EVS["state/latest_review.json<br/>every figure tagged with its source"]
@@ -125,6 +127,10 @@ flowchart TB
   ETF --> YH
   POOL -->|"screen · similar companies"| FH
   FX --> ECB
+  STK -->|"company news"| GN
+  MKTN -->|"indices · oil · yields"| YH
+  MKTN -->|"market news"| FH
+  MKTN -->|"topics, known outlets"| GN
 
   REV -->|"writes"| EVS
   EVS -->|"trimmed digest"| CLAUDE

@@ -1,9 +1,28 @@
 {%- from "macros.html" import h2 -%}
 <section id="news" tabindex="-1">
-  {{ h2("news", "Recent news") }}
-  <p class="sub">Headlines from the past week that fed into today&rsquo;s reasoning.</p>
+  {{ h2("news", "News") }}
+  <p class="sub">The market and world developments picked out as most likely to move your holdings, then headlines about the companies themselves. All of it fed into today&rsquo;s reasoning.</p>
+  {% if markets.snapshot or markets.briefing -%}
+  <h3 class="subhead">Markets &amp; world</h3>
+  {% if markets.snapshot -%}
+  <div class="mkt-grid">
+    {%- for r in markets.snapshot %}
+    <div class="mkt"><span class="mkt-name">{{ r.name }}</span><span class="num mkt-level">{{ r.level_text }}</span><span class="num mkt-chg">{{ r.d1 }} on the day &middot; {{ r.d5 }} over 5 days</span></div>
+    {%- endfor %}
+  </div>
+  {%- endif %}
+  {% if markets.briefing -%}
+  <ul class="briefing">
+    {%- for b in markets.briefing %}
+    <li><p class="dev">{{ b.development }}</p><p class="impact">{{ b.impact }}</p>
+      <div class="chips">{% for s in b.affects %}<span class="chip">{{ s }}</span>{% endfor %}{% for h in b.sources %}<a class="src" href="{{ h.url | safe_url }}" target="_blank" rel="noopener" title="{{ h.headline }}">{{ h.source }}</a>{% endfor %}</div></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  <h3 class="subhead">Company news</h3>
+  {%- endif %}
   {% if not news -%}
-  <p class="empty">No recent news returned this run.</p>
+  <p class="empty">No recent company news returned this run.</p>
   {%- else -%}
   <ul class="news">
     {%- for n in news %}

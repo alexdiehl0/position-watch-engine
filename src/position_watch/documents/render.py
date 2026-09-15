@@ -11,6 +11,7 @@ from datetime import date
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from position_watch import compliance
+from position_watch.analysis import markets
 from position_watch.analysis.stock import volatility_level
 
 TITLE = "AI STOCK PORTFOLIO REVIEW"
@@ -97,7 +98,8 @@ def email_rows(calls: list, evidence: dict, names: dict | None = None, positions
 
 
 def report(**ctx) -> str:
-    return _env().get_template("report.md").render(**ctx)
+    backdrop = markets.display(ctx.get("review"), (ctx.get("calls") or {}).get("market_briefing"))
+    return _env().get_template("report.md").render(markets=backdrop, **ctx)
 
 
 def email(
@@ -117,6 +119,7 @@ def email(
     ctx = {
         "long_date": date.fromisoformat(day).strftime("%A, %-d %B %Y"),
         "totals": totals,
+        "markets": markets.display(review, calls.get("market_briefing")),
         "sections": [
             ("Your stocks", email_rows(calls.get("holdings", []), review.get("holdings", {}), names, positions or {})),
             ("Core ETFs", email_rows(calls.get("etfs", []), review.get("etfs", {}), names)),

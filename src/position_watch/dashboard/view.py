@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from position_watch import compliance, people, settings, suggestion_log
-from position_watch.analysis import pnl
+from position_watch.analysis import markets, pnl
 from position_watch.analysis.stock import volatility_level
 
 ACTION_STATUS = {"buy": "good", "add": "good", "top_up": "good", "hold": "warn", "trim": "crit", "sell": "crit"}
@@ -405,6 +405,7 @@ def build(fragment=False) -> dict:
         "watchlist": watchlist(review, suggestions),
         "pool": pool_table(review),
         "news": news(review),
+        "markets": markets.display(review, (suggestions or {}).get("market_briefing")),
         "excluded": excluded(review),
         "profile": profile(people.client()),
         "feedback": {

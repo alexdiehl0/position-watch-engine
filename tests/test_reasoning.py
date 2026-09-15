@@ -19,7 +19,11 @@ def test_request_uses_opus_5_with_fallbacks_structured_output_and_fenced_feedbac
     assert "Please avoid tobacco" in user
     assert '"history"' not in user  # preference history isn't sent
     evidence = json.loads(user.split("<evidence>\n")[1].split("\n</evidence>")[0])
-    assert set(evidence) == {"holdings", "etfs", "candidates", "excluded"}
+    assert set(evidence) == {"markets", "holdings", "etfs", "candidates", "excluded"}
+    assert evidence["markets"]["headlines"][0] == {"id": "M1", "headline": "Oil jumps as shipping lanes are attacked",
+                                                   "source": "Reuters", "published": "2026-01-02T03:00",
+                                                   "summary": "Brent rose 3%."}  # fmt: skip
+    assert "url" not in evidence["markets"]["headlines"][1] and "summary" not in evidence["markets"]["headlines"][1]
     assert "sources" not in evidence["holdings"]["USDS"]  # trimmed digest
     assert evidence["candidates"]["AAA"]["why_on_watchlist"]["slot"] == "top"
 
@@ -57,3 +61,11 @@ def test_preference_changes_are_recorded_with_their_source(workspace):
     assert prefs["avoid"] == ["tobacco"]
     assert prefs["history"][-1]["source"] == "feedback <m1@example.com> from Client"
     assert lines == ["avoid + tobacco"]
+
+
+def test_market_briefing_keeps_only_real_headlines_and_symbols(review_data):
+    calls, _ = reasoning.decide(review_data, None, FEEDBACK, "2026-01-02", client=FakeClaude())
+    assert calls["market_briefing"] == [
+        {"development": "Oil jumped after attacks on shipping lanes.", "impact": "Higher costs weigh on USDS.",
+         "affects": ["USDS"], "headline_ids": ["M1"]}  # invented id, unknown symbol and invented event dropped
+    ]  # fmt: skip

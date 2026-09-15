@@ -2,6 +2,19 @@
 {{ long_date }}
 
 Value {{ totals.value_usd | usd }}  ·  Return {{ totals.pnl_usd | usd(signed=true) }} ({{ totals.pnl_pct | pct }})  ·  Dividends {{ totals.dividends_usd | usd }}
+{% if markets.snapshot or markets.briefing %}
+
+MARKETS & WORLD
+{% if markets.snapshot %}
+{{ markets.snapshot | map(attribute="line") | join(" · ") }}
+{% endif %}
+{% for b in markets.briefing %}
+
+• {{ b.development }}
+  {{ b.impact }}{% if b.affects %} [{{ b.affects | join(", ") }}]{% endif %}
+
+{% endfor %}
+{% endif %}
 {% for heading, rows in sections %}
 {% if rows %}
 

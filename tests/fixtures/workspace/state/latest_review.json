@@ -154,5 +154,55 @@
       "source": "ECB reference rate"
     }
   },
-  "fx_errors": {}
+  "fx_errors": {},
+  "markets": {
+    "snapshot": [
+      {
+        "name": "S&P 500",
+        "level": 5000.0,
+        "unit": "index",
+        "change_1d": -0.5,
+        "change_5d": -1.2,
+        "as_of": "2026-01-02",
+        "source": "yfinance"
+      },
+      {
+        "name": "US 10-year yield",
+        "level": 4.5,
+        "unit": "yield",
+        "change_1d": 6,
+        "change_5d": 18,
+        "as_of": "2026-01-02",
+        "source": "yfinance"
+      },
+      {
+        "name": "Brent oil",
+        "level": 90.0,
+        "unit": "usd",
+        "change_1d": 3.1,
+        "change_5d": 8.0,
+        "as_of": "2026-01-02",
+        "source": "yfinance"
+      }
+    ],
+    "headlines": [
+      {
+        "id": "M1",
+        "headline": "Oil jumps as shipping lanes are attacked",
+        "source": "Reuters",
+        "published": "2026-01-02T03:00:00+00:00",
+        "url": "https://example.com/m1",
+        "summary": "Brent rose 3%."
+      },
+      {
+        "id": "M2",
+        "headline": "Central bank signals a rate rise",
+        "source": "WSJ",
+        "published": "2026-01-01T20:00:00+00:00",
+        "url": "https://example.com/m2",
+        "summary": ""
+      }
+    ],
+    "data_gaps": null
+  }
 }

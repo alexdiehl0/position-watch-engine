@@ -23,9 +23,11 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 |---|---|
 | `src/position_watch/cli.py` | Every command (`position-watch --help`). |
 | `settings.py` | Workspace resolution (`POSITION_WATCH_WORKSPACE`, else the current folder if it has `config/people.json`), `.env`, links from the GitHub environment, `redact()`. |
-| `sources/` | Thin API clients: `fmp` (stops after a plan refusal or used-up quota), `finnhub` (paced under 60/min, per-run cache, skips endpoints the plan refuses), `yahoo`, `fx` (ECB via api.frankfurter.dev). Each returns `(data, error)`. |
+| `sources/` | Thin API clients: `fmp` (stops after a plan refusal or used-up quota), `finnhub` (paced under 60/min, per-run cache, skips endpoints the plan refuses), `yahoo`, `gnews` (Google News RSS search, no key), `fx` (ECB via api.frankfurter.dev). Each returns `(data, error)`. |
 | `analysis/stock.py`, `analysis/etf.py` | Evidence per stock / ETF, every metric tagged with its source, gaps listed. |
 | `analysis/pool.py` | Stock pool: weekly refresh, daily screen and score, watchlist pick. |
+| `analysis/news.py`, `analysis/markets.py` | Company headlines that name the company (Finnhub + Google News, deduped); market and geopolitical headlines from established outlets (ids M1…); the market snapshot (indices, VIX, US 10-year, EUR/USD, Brent, gold). |
+| `analysis/volatility.py` | 3-month volatility from adjusted daily closes, and its low/moderate/high label. |
 | `analysis/pnl.py` | P&L per position and USD totals. |
 | `review.py` | The evidence pass → `state/latest_review.json`. |
 | `llm.py` | One Claude request: batched at half price by default, direct call with fallbacks if a batch is slow or declined; usage log. |
@@ -49,11 +51,12 @@ Every judgement rests on specific metrics — never a vague "looks undervalued".
 - **Dividend quality:** yield · payout ratio (flag near/over 100%) · growth streak · FCF coverage.
 - **Risk:** 3-month annualised volatility, computed from adjusted daily closes for every stock and ETF (`analysis/volatility.py`; the vendor's figure only as a fallback) (low < 20%, moderate < 35%, high above), beta vs the S&P 500, 52-week range; weighed against the owner's risk tolerance.
 - **Forecast / sentiment:** analyst consensus and trend · consensus EPS growth (trailing growth labelled as such) · earnings surprises · headline tone.
+- **Markets and world:** the day's snapshot and market/geopolitical headlines; the model names the 3–5 developments most likely to move the holdings, the symbols each affects and how, citing headline ids — never events from memory.
 - **ETFs (Top up / Hold only):** price vs the owner's cost, below the 52-week high, vs the 200-day average, weight; fee, yield, swing and beta as context.
 - **Portfolio as a whole (monthly):** concentration (top-3 weight, effective number of positions), sector / currency / asset mix, value-weighted volatility and beta with coverage, income, change since last month.
 
 ## Data sources
-Per-metric fallback **FMP → Finnhub → Yahoo**; the first source to return a metric wins and `sources` records which. FMP's free plan covers few symbols (250 calls/day); Finnhub's free plan covers most US stocks (60 calls/minute; price targets and dividend history paywalled); Yahoo is unofficial and often blocked from cloud servers. Exchange rates: ECB via api.frankfurter.dev, Yahoo fallback. Output cites each figure's source and when it was pulled.
+Per-metric fallback **FMP → Finnhub → Yahoo**; the first source to return a metric wins and `sources` records which. FMP's free plan covers few symbols (250 calls/day); Finnhub's free plan covers most US stocks (60 calls/minute; price targets and dividend history paywalled); Yahoo is unofficial and often blocked from cloud servers. News: Finnhub company news (US) and market news (Reuters, CNBC…), plus Google News RSS searches — company names for everyone, market topics kept to established outlets; clickbait, press-release wires and content farms are dropped. Exchange rates: ECB via api.frankfurter.dev, Yahoo fallback. Output cites each figure's source and when it was pulled.
 
 ## Output wording
 Plain labels Buy / Add / Hold / Trim / Sell, Top up / Hold for ETFs (lower-case codes in state files). Every email, report and dashboard view ends with `compliance.NOTE`. Before offering Position Watch to people outside your own circle, get advice on investment-advice regulation (e.g. MiFID II in the EU) and data protection; the short note is written for private use.

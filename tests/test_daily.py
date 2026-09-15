@@ -35,12 +35,19 @@ def test_full_run_writes_everything_and_emails(workspace, pipeline):
                      "Not financial advice."):  # fmt: skip
         assert expected in report
     assert (workspace / "site" / "index.html").exists()
+    assert "## Markets & world" in report and "| US 10-year yield | 4.50% | +6 bp | +18 bp |" in report
+    assert "- **Oil jumped after attacks on shipping lanes.** Higher costs weigh on USDS. *Affects: USDS.*" in report
+    site = (workspace / "site" / "index.html").read_text()
+    assert "Markets &amp; world" in site and "Oil jumped after attacks on shipping lanes." in site
 
     (to, subject, body, html) = pipeline[0]
     assert subject == "AI STOCK PORTFOLIO REVIEW — 2 Jan 2026"
     assert to == ["operator@example.com", "Client@Example.com"]
     assert body.startswith("AI STOCK PORTFOLIO REVIEW\nFriday, 2 January 2026")
     assert "BUY  AAA — Alpha Corp\nDiscount and yield." in body
+    assert "MARKETS & WORLD\nS&P 500 5,000 (−0.5%) · US 10-year yield 4.50% (+6 bp) · Brent oil $90.00 (+3.1%)" in body
+    assert "• Oil jumped after attacks on shipping lanes.\n  Higher costs weigh on USDS. [USDS]" in body
+    assert "MARKETS &amp; WORLD" in html and 'href="https://example.com/m1"' in html
     assert "The dashboard was not updated today." in body  # no --pages-dir
     # HTML version: colour-coded badges that still carry the word, most actionable first
     assert "AI STOCK PORTFOLIO REVIEW" in html and ">BUY</span>" in html and "#dcfce7" in html

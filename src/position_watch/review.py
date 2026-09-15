@@ -16,6 +16,7 @@ import json
 from datetime import date, datetime, timezone
 
 from position_watch import instruments, settings
+from position_watch.analysis import markets
 from position_watch.analysis import pool as stock_pool
 from position_watch.analysis.etf import evaluate_etf
 from position_watch.analysis.stock import evaluate_stock
@@ -81,6 +82,9 @@ def run(include_candidates: bool = True) -> dict:
             results["fx"][currency] = rate
         else:
             results["fx_errors"][currency] = err
+
+    # The market and world backdrop: indices, rates, oil..., and the day's market headlines.
+    results["markets"] = markets.gather()
 
     results["run"] = {"started_at": started, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     return results
