@@ -15,6 +15,11 @@ CALLS = {
               "reasoning": "10.0% vs cost.", "watch_note": ""}],
     "candidates": [{"symbol": "AAA", "action": "buy", "one_line": "Discount and yield.",
                     "reasoning": "P/E 10.0 vs median 14.0.", "watch_note": ""}],
+    "market_briefing": [
+        {"development": "Oil jumped after attacks on shipping lanes.", "impact": "Higher costs weigh on USDS.",
+         "affects": ["USDS", "NOPE"], "headline_ids": ["M1", "M99"]},
+        {"development": "Invented event.", "impact": "None.", "affects": ["USDS"], "headline_ids": ["M42"]},
+    ],
     "notes_for_tomorrow": ["Re-check USDS headlines."],
     "feedback_applied": [{"message_id": "<m1@example.com>", "how": "Avoiding tobacco, as the client asked."}],
     "preference_changes": [{"message_id": "<m1@example.com>", "field": "avoid", "operation": "add", "value": "tobacco"}],

@@ -249,3 +249,16 @@ ul.excluded .reason { color: var(--ink-2); }
   .masthead .meta { text-align: left; }
   section { padding: 18px 16px; }
 }
+
+/* News: the market backdrop above the company headlines. */
+h3.subhead { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin: 18px 0 10px; }
+.mkt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.mkt { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.mkt-name { font-size: 0.72rem; color: var(--ink-3); }
+.mkt-level { font-size: 1.05rem; font-weight: 600; }
+.mkt-chg { font-size: 0.75rem; color: var(--ink-2); }
+ul.briefing { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+ul.briefing li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+ul.briefing .dev { margin: 0; font-weight: 600; }
+ul.briefing .impact { margin: 4px 0 8px; color: var(--ink-2); }
+ul.briefing .src { font-size: 0.75rem; color: var(--ink-3); align-self: center; }

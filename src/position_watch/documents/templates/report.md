@@ -25,6 +25,25 @@ Every figure below comes from live FMP, Finnhub and yfinance calls made during t
 
 **Carried over:** {{ calls.context_note }}
 
+{% if markets.snapshot or markets.briefing %}
+## Markets & world
+
+{% if markets.snapshot %}
+| Market | Level | 1 day | 5 days |
+|---|---|---|---|
+{% for r in markets.snapshot %}
+| {{ r.name }} | {{ r.level_text }} | {{ r.d1 }} | {{ r.d5 }} |
+{% endfor %}
+
+Last closes as of each market's own date [yfinance]; yields move in basis points.
+
+{% endif %}
+{% for b in markets.briefing %}
+- **{{ b.development }}** {{ b.impact }} *Affects: {{ b.affects | join(", ") or "none named" }}.* Sources: {% for h in b.sources %}[{{ h.id }} {{ h.source }}]({{ h.url }}){% if not loop.last %}, {% endif %}{% endfor %}
+{% endfor %}
+
+{% endif %}
+
 ## Current Holdings
 
 {% for c in calls.holdings %}

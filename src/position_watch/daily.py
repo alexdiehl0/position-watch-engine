@@ -42,6 +42,7 @@ def _suggestions(day: str, calls: dict) -> dict:
         "holdings": table(calls["holdings"]),
         "etfs": table(calls["etfs"]),
         "candidates": table(calls["candidates"]),
+        "market_briefing": calls.get("market_briefing", []),
     }
 
 

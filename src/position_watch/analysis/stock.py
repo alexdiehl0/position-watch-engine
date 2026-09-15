@@ -19,6 +19,7 @@ evidence into a portfolio-wide suggestion happens one level up.
 from datetime import date, datetime, timezone
 
 from position_watch.analysis import volatility
+from position_watch.analysis.news import company_news
 from position_watch.sources import finnhub, fmp, yahoo
 
 
@@ -459,24 +460,6 @@ def _gather_fundamentals(symbol: str):
     return values, sources, dividend_events, dividend_source, earnings_events, gaps
 
 
-def _recent_news(symbol: str, limit: int = 5):
-    news_data, news_err = finnhub.get_company_news(symbol)
-    if news_err:
-        return None, news_err
-    items = [
-        {
-            "headline": n.get("headline"),
-            "source": n.get("source"),
-            "date": datetime.fromtimestamp(n["datetime"], tz=timezone.utc).date().isoformat()
-            if n.get("datetime")
-            else None,
-            "url": n.get("url"),
-        }
-        for n in news_data[:limit]
-    ]
-    return items, None
-
-
 def evaluate_stock(symbol: str, holding_data: dict = None) -> dict:
     pulled_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -561,7 +544,7 @@ def evaluate_stock(symbol: str, holding_data: dict = None) -> dict:
     if forecast_note is None:
         data_gaps.append("forecast: no analyst/consensus signal could be computed from returned data")
 
-    news, news_err = _recent_news(symbol)
+    news, news_err = company_news(symbol, v["company_name"] or (holding_data or {}).get("name"))
     if news_err:
         data_gaps.append(f"recent news: {news_err}")
 
