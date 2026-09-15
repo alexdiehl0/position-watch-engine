@@ -13,7 +13,7 @@ flowchart TB
   end
 
   subgraph REPO["Your portfolio repo · private"]
-    CRON["GitHub Actions<br/>daily 04:00 UTC · monthly on the 1st"]
+    CRON["GitHub Actions<br/>daily 04:17 UTC, two backups · monthly on the 1st"]
     SEC[("Secrets<br/>Anthropic · FMP · Finnhub<br/>Gmail · passcode · Pages token")]
     IN["config/ · data/<br/>holdings · people and preferences<br/>yesterday's handoff"]
     OUT["state/ · reports/<br/>calls · history · handoff · cost log"]
@@ -58,7 +58,7 @@ Line styles: **thick** arrows reach people, **dotted** arrows carry secrets (nev
 %%{init: {"flowchart": {"useMaxWidth": false, "nodeSpacing": 34, "rankSpacing": 54}}}%%
 flowchart TB
   subgraph PRIV["GitHub · your portfolio repo (private) · data + workflows"]
-    CRON["Actions cron · daily.yml<br/>04:00 UTC · installs the engine"] -->|"runs"| DAILY["daily.py<br/>position-watch daily"]
+    CRON["Actions cron · daily.yml<br/>04:17 UTC, two backups · installs the engine"] -->|"runs"| DAILY["daily.py<br/>position-watch daily"]
     SEC[("Repository secrets<br/>Anthropic · FMP · Finnhub · Gmail<br/>passcode · Pages token")]
   end
 

@@ -2,8 +2,12 @@ name: Monthly review
 
 # Position Watch monthly run: how the calls evolved and a review of the portfolio as a whole.
 on:
+  # Off the hour, with two backup slots that do nothing once the report exists
+  # (see daily.yml for why).
   schedule:
-    - cron: "0 5 1 * *"  # 05:00 UTC on the 1st
+    - cron: "23 5 1 * *"  # 05:23 UTC on the 1st
+    - cron: "53 5 1 * *"  # backup
+    - cron: "23 6 1 * *"  # backup
   workflow_dispatch:
 
 permissions:
@@ -14,7 +18,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      done: ${{ steps.month.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: reports
+      - id: month
+        name: Has this month's review already run?
+        run: |
+          ended=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)  # the month just ended
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "reports/monthly/$ended-review.md" ]; then
+            echo "The $ended review already ran; this backup slot has nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
   review:
+    needs: check
+    if: needs.check.outputs.done != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:

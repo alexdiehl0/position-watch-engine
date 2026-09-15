@@ -5,8 +5,13 @@ name: Daily review
 #   PAGES_REPOSITORY  owner/name of the public repo that hosts your locked dashboard
 #   ENGINE_REF        engine version to run (a tag like v0.4.0, or main)
 on:
+  # GitHub may delay or drop scheduled runs when it's busy, especially on the
+  # hour. So the run is set a little after it, with two backup slots that do
+  # nothing once today's review exists (and retry if the first one failed).
   schedule:
-    - cron: "0 4 * * *"  # 04:00 UTC
+    - cron: "17 4 * * *"  # 04:17 UTC
+    - cron: "47 4 * * *"  # backup
+    - cron: "17 5 * * *"  # backup
   workflow_dispatch:
 
 permissions:
@@ -17,7 +22,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      done: ${{ steps.today.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: reports
+      - id: today
+        name: Has today's review already run?
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "reports/$(date -u +%F)-review.md" ]; then
+            echo "Today's review already ran; this backup slot has nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
   review:
+    needs: check
+    if: needs.check.outputs.done != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75  # the Claude call is batched (half price) and can take a while
     env:
