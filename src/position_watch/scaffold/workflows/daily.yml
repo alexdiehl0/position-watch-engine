@@ -27,13 +27,17 @@ jobs:
     outputs:
       done: ${{ steps.today.outputs.done }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: reports
+      # Asks GitHub for the file rather than checking the repo out: a run's
+      # checkout is the code as of when the event fired, which on a late or
+      # queued backup slot is older than the review that just finished.
       - id: today
         name: Has today's review already run?
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "reports/$(date -u +%F)-review.md" ]; then
+          file="reports/$(date -u +%F)-review.md"
+          if [ "${{ github.event_name }}" = "schedule" ] &&
+             gh api "repos/${{ github.repository }}/contents/$file" --silent 2>/dev/null; then
             echo "Today's review already ran; this backup slot has nothing to do."
             echo "done=true" >> "$GITHUB_OUTPUT"
           fi

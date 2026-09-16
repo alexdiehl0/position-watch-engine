@@ -23,14 +23,15 @@ jobs:
     outputs:
       done: ${{ steps.month.outputs.done }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: reports
+      # Asks GitHub for the file rather than checking the repo out (see daily.yml).
       - id: month
         name: Has this month's review already run?
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           ended=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)  # the month just ended
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "reports/monthly/$ended-review.md" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] &&
+             gh api "repos/${{ github.repository }}/contents/reports/monthly/$ended-review.md" --silent 2>/dev/null; then
             echo "The $ended review already ran; this backup slot has nothing to do."
             echo "done=true" >> "$GITHUB_OUTPUT"
           fi
