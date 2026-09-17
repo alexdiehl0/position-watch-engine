@@ -49,3 +49,47 @@ def test_refresh_is_due_after_refresh_days():
     assert pool.needs_refresh({"refreshed": None}, universe, date(2026, 1, 10))
     assert not pool.needs_refresh({"refreshed": "2026-01-05"}, universe, date(2026, 1, 10))
     assert pool.needs_refresh({"refreshed": "2026-01-03"}, universe, date(2026, 1, 10))
+
+
+# ---- non-US stocks: screened through Yahoo, because the free US plans have none ----
+
+EURO_INFO = {"trailingPE": 11.5, "forwardPE": 9.1, "dividendYield": 4.5, "payoutRatio": 0.49,
+             "marketCap": 176_000_000_000, "currency": "EUR", "sector": "Energy", "longName": "TotalEnergies SE",
+             "beta": 0.9}  # fmt: skip
+
+
+def _screen_european(monkeypatch, info, cap_floor=2000):
+    monkeypatch.setattr(pool.yahoo, "get_info", lambda s: (info, None) if info else (None, "yfinance returned nothing"))
+    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
+    monkeypatch.setattr(pool.fx, "get_rate", lambda base, quote="USD": ({"rate": 1.1}, None))
+    stocks = {"stocks": {"TTE.PA": {"market": "europe", "name": "TotalEnergies SE", "industry": "Oil & Gas"}}}
+    pool.screen(stocks, {"min_market_cap_usd_m": cap_floor}, date(2026, 1, 2))
+    return stocks["stocks"]["TTE.PA"]["screen"]
+
+
+def test_a_european_stock_is_screened_from_yahoo(monkeypatch):
+    screen = _screen_european(monkeypatch, EURO_INFO)
+    assert screen["passed"] and screen["dividend_yield_pct"] == 4.5 and screen["payout_ratio_pct"] == 49.0
+    assert round(screen["market_cap_usd_m"]) == 193_600  # converted at the ECB rate
+    assert "no 5-yr history" in screen["why"]  # said, never filled in
+    assert screen["gaps"] == ["five_yr_median_pe: Yahoo has no P/E history"]
+
+
+def test_a_missing_market_cap_is_a_gap_not_a_rejection(monkeypatch):
+    screen = _screen_european(monkeypatch, {**EURO_INFO, "marketCap": None})
+    assert screen["passed"] and screen["market_cap_usd_m"] is None
+    assert "market cap: not returned by Yahoo" in screen["gaps"]
+
+
+def test_a_european_stock_with_no_data_is_dropped(monkeypatch):
+    assert _screen_european(monkeypatch, None)["filtered_out"] == "no data from Yahoo"
+
+
+def test_a_yield_reads_the_same_whichever_way_yahoo_sends_it():
+    assert pool._to_pct(4.5) == 4.5 and pool._to_pct(0.045) == 4.5 and pool._to_pct(None) is None
+
+
+def test_forward_pe_stands_in_for_a_missing_history():
+    cheaper, why = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=14)
+    flat, _ = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=20)
+    assert cheaper > flat and "vs forward 14.0, no 5-yr history" in why
