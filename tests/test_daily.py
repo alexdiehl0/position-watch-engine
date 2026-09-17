@@ -4,7 +4,7 @@ import pytest
 
 from position_watch import daily, mail, review
 from position_watch.dashboard import publish
-from tests.fakes import FEEDBACK, FakeClaude
+from tests.fakes import FEEDBACK, IGNORED, FakeClaude
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def pipeline(monkeypatch, review_data):
         monkeypatch.setenv(name, f"test-{name.lower()}-value")
     review_data["run"] = {"started_at": "2026-01-02T04:00:00+00:00", "finished_at": "2026-01-02T04:05:00+00:00"}
     monkeypatch.setattr(review, "run", lambda: review_data)
-    monkeypatch.setattr(mail, "fetch_feedback", lambda: FEEDBACK)
+    monkeypatch.setattr(mail, "fetch_feedback", lambda: (FEEDBACK, IGNORED))
     sent = []
     monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: sent.append((to, subject, body, html)))
     return sent
@@ -48,6 +48,10 @@ def test_full_run_writes_everything_and_emails(workspace, pipeline):
     assert "MARKETS & WORLD\nS&P 500 5,000 (−0.5%) · US 10-year yield 4.50% (+6 bp) · Brent oil $90.00 (+3.1%)" in body
     assert "• Oil jumped after attacks on shipping lanes.\n  Higher costs weigh on USDS. [USDS]" in body
     assert "MARKETS &amp; WORLD" in html and 'href="https://example.com/m1"' in html
+    # the message we couldn't use is named once, with how to accept the sender
+    assert "A message from stranger@example.com was ignored" in body and "reply: add stranger@example.com" in body
+    assert "**Note:** A message from stranger@example.com was ignored" in report
+    assert "stranger@example.com" in site
     assert "The dashboard was not updated today." in body  # no --pages-dir
     # HTML version: colour-coded badges that still carry the word, most actionable first
     assert "AI STOCK PORTFOLIO REVIEW" in html and ">BUY</span>" in html and "#dcfce7" in html
