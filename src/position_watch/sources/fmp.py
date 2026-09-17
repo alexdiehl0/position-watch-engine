@@ -105,5 +105,11 @@ def get_earnings(symbol: str, limit: int = 5):
     return _get("earnings", {"symbol": symbol, "limit": limit})
 
 
+def get_index_constituents(index: str = "sp500"):
+    """Every member of an index (paid plans only; the free plan refuses it, and
+    the caller falls back to the seed list). `index`: sp500, nasdaq or dowjones."""
+    return _get(f"{index}-constituent", {})
+
+
 def get_sector_pe_snapshot(exchange: str, as_of_date: str):
     return _get("sector-pe-snapshot", {"exchange": exchange, "date": as_of_date})

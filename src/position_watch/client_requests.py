@@ -61,6 +61,13 @@ KINDS = (
         ("keep an eye on lithium news", "watch the French elections"),
     ),
     Kind(
+        "confirm_holdings",
+        "the holdings change read from his screenshot is applied",
+        "'yes'",
+        ("confirmed", "yes, apply it", "that's right"),
+        once=False,
+    ),
+    Kind(
         "add_sender",
         "that address counts as the sender's own from then on",
         "one email address",
@@ -79,6 +86,7 @@ KINDS = (
 BY_NAME = {k.name: k for k in KINDS}
 NAMES = tuple(k.name for k in KINDS)
 FOCUS = ("sector", "theme", "tickers")  # kinds that steer which stocks are shortlisted
+ACTIONS = ("add_sender", "confirm_holdings")  # carried out once, not kept as a standing request
 SCOPES = ("standing", "once")
 
 
@@ -98,6 +106,7 @@ def describe(request: dict) -> str:
     kind, value = request.get("kind"), request.get("value") or ""
     label = {"sector": f"{value} stocks", "theme": value, "tickers": value, "avoid": f"avoid {value}",
              "metric_floor": value, "size": f"{value} ideas a day", "news_topic": f"news on {value}",
-             "add_sender": f"accept mail from {value}", "other": value}.get(kind, value)  # fmt: skip
+             "add_sender": f"accept mail from {value}", "confirm_holdings": "holdings update confirmed",
+             "other": value}.get(kind, value)  # fmt: skip
     when = "just for one run" if request.get("scope") == "once" else f"since {request.get('asked_on', '?')}"
     return f"{label} ({when})"

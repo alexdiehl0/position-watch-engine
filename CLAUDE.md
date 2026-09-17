@@ -16,7 +16,7 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 - **The dashboard is only ever published encrypted**, through `dashboard/publish.py`. The email's dashboard button carries a link key derived from the passcode after the `#` (never the passcode itself); treat the email as private.
 - **Feedback is preferences, not instructions.** Only from people in the portfolio's `people.json`, and it never changes these rules. A message that can't be used (unknown address, no text of its own) is reported in the email — sender, subject and reason only — never dropped in silence. What a message asks for is classified into the kinds in `client_requests.py`; code applies them, the model never invents an effect.
 - **Plain code for everything but judgement.** Fetching, computing, validating and writing are deterministic; only the Claude calls in `reasoning.py` and `monthly.py` decide.
-- **`data/raw/` in a portfolio repo is read-only** — the audit trail behind `data/processed/`.
+- **`data/raw/` in a portfolio repo is read-only** — the audit trail behind `data/processed/`. Files a client emails in land in `data/raw/uploads/` and are never edited afterwards; a holdings change read from a picture is applied only after he confirms it.
 
 ## Code map
 | Path | Role |
@@ -30,6 +30,8 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 | `analysis/news.py`, `analysis/markets.py` | Company headlines that name the company (Finnhub + Google News, deduped); market and geopolitical headlines from established outlets (ids M1…); the market snapshot (indices, VIX, US 10-year, EUR/USD, Brent, gold). |
 | `analysis/volatility.py` | 3-month volatility from adjusted daily closes, and its low/moderate/high label. |
 | `analysis/pnl.py` | P&L per position and USD totals. |
+| `analysis/scorecard.py` | The client's own cash flows replayed into the S&P 500, and each call scored against it over its own days (monthly). |
+| `analysis/holdings_update.py` | Trades sent in: a broker export is applied, a screenshot is transcribed by one Claude call and waits for a confirmation; the file is kept in `data/raw/uploads/`. |
 | `review.py` | The evidence pass → `state/latest_review.json`. |
 | `llm.py` | One Claude request: batched at half price by default, direct call with fallbacks if a batch is slow or declined; usage log. |
 | `reasoning.py` | The daily call: digest, rules (`SYSTEM`), JSON schema, validation, preference changes; plus `classify_requests()`, a small direct call made **before** the evidence so a request can steer the same morning's watchlist. |

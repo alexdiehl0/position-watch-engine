@@ -26,7 +26,7 @@ from datetime import date, timedelta
 
 from position_watch import client_requests, settings, suggestion_log
 from position_watch.analysis import volatility
-from position_watch.sources import finnhub, fx, yahoo
+from position_watch.sources import finnhub, fmp, fx, yahoo
 
 
 def universe_path():
@@ -104,6 +104,18 @@ def refresh(pool, universe, held, today):
             add(s, f"starting list: {group}", market)
     for s in stocks:
         stocks[s]["seed"] = s in seeded
+
+    # A whole index, when the data plan allows it: 500 names beats any hand-written
+    # list. The free plan refuses this, and the seed list above carries the pool.
+    for index in universe.get("index_seeds") or []:
+        members, err = fmp.get_index_constituents(index)
+        if err:
+            notes.append(f"{index} constituents: {err}")
+            continue
+        for member in members or []:
+            symbol = (member.get("symbol") or "").upper()
+            seeded.add(symbol)
+            add(symbol, f"in the {index.upper()}")
 
     sources = [s for s in held if US_TICKER.fullmatch(s)] + _recent_buy_adds(today)
     for src in dict.fromkeys(sources):
