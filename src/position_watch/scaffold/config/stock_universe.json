@@ -1,11 +1,12 @@
 {
-  "_about": "Settings and starting list for the stock pool the watchlist is picked from. Tickers only: every number used to rank them comes from the live screen. Edit freely; the next weekly refresh picks up changes. Large US listings only on Finnhub's free plan.",
+  "_about": "Settings and starting list for the stock pool the watchlist is picked from. Tickers only: every number used to rank them comes from the live screen. Edit freely; the next weekly refresh picks up changes. Large US listings only on Finnhub's free plan. `watchlist.focus` is how many slots go to what the client has asked for (see the requests in people.json).",
   "refresh_days": 7,
   "pool_cap": 150,
   "min_market_cap_usd_m": 2000,
   "watchlist": {
     "top": 6,
-    "rotation": 2
+    "rotation": 2,
+    "focus": 4
   },
   "seeds": {
     "Consumer staples": [

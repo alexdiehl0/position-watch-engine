@@ -5,6 +5,18 @@
   <dl class="profile">
     {%- for label, value, empty in profile.rows %}<dt>{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="muted">{{ empty }}</span>{% endif %}</dd>{% endfor -%}
   </dl>
+  {% if requests.active -%}
+  <h3 class="subhead">What you&rsquo;ve asked for</h3>
+  <ul class="ignored">
+    {%- for r in requests.active %}
+    <li><span class="ticker">{{ r.kind }}</span><span>{{ r.line }}</span>{% if r.text %}<span class="src">&ldquo;{{ r.text }}&rdquo;</span>{% endif %}</li>
+    {%- endfor %}
+  </ul>
+  <p class="pnl-note">To change it, reply to the daily email &mdash; for example &ldquo;back to normal&rdquo;, or &ldquo;{{ requests.kinds[0].example }}&rdquo;.</p>
+  {%- else -%}
+  <h3 class="subhead">What you can ask for</h3>
+  <p class="pnl-note">Reply to the daily email and the next morning&rsquo;s review follows it: {% for k in requests.kinds %}&ldquo;{{ k.example }}&rdquo;{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+  {%- endif %}
   {%- if profile.last %}
   <p class="pnl-note">Last change {{ profile.last.date }}: {{ profile.last.change }} ({{ profile.last.source }}).</p>
   {%- endif %}

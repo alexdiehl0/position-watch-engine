@@ -131,8 +131,10 @@ def company_news(symbol: str, legal_name: str | None, limit: int = 5):
     return items, ("; ".join(errors) if errors and not found else None)
 
 
-def market_news(limit: int = 40, hours: int = 36, now: datetime | None = None) -> dict:
-    """Market and geopolitical headlines from the last `hours`, newest first, with ids M1..Mn."""
+def market_news(limit: int = 40, hours: int = 36, now: datetime | None = None, extra_topics=()) -> dict:
+    """Market and geopolitical headlines from the last `hours`, newest first, with ids M1..Mn.
+    `extra_topics` are the client's own standing news requests: searched the same
+    way, but kept whatever the outlet, since a niche topic lives in niche press."""
     now = now or datetime.now(timezone.utc)
     found, errors = [], []
     data, err = finnhub.get_general_news("general")
@@ -144,6 +146,11 @@ def market_news(limit: int = 40, hours: int = 36, now: datetime | None = None) -
         if err:
             errors.append(err)
         found += [_finish(n, "Google News") for n in data or [] if n["source"].lower() in MARKET_OUTLETS]
+    for topic in dict.fromkeys(t for t in extra_topics if t):
+        data, err = gnews.search(topic, days=3)
+        if err:
+            errors.append(err)
+        found += [{**_finish(n, "Google News"), "asked_for": topic} for n in data or []]
 
     cutoff = (now - timedelta(hours=hours)).isoformat()
     fresh = [n for n in found if (n.get("published") or "") >= cutoff and _useful(n)]
@@ -156,6 +163,7 @@ def market_news(limit: int = 40, hours: int = 36, now: datetime | None = None) -
             "published": n["published"],
             "url": n.get("url"),
             "summary": n["summary"][:240],
+            **({"asked_for": n["asked_for"]} if n.get("asked_for") else {}),
         }  # fmt: skip
         for i, n in enumerate(_dedupe(fresh)[:limit], 1)
     ]

@@ -128,6 +128,7 @@ def read_message(raw: bytes) -> dict | None:
     return {
         "usable": True,
         "message_id": message_id,
+        "from": sender,
         "name": who["name"],
         "role": who["role"],
         "date": str(msg.get("Date", "")),

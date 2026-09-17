@@ -16,7 +16,7 @@ import json
 import os
 from datetime import date
 
-from position_watch import settings
+from position_watch import client_requests, settings
 
 
 def people_path():
@@ -85,6 +85,89 @@ def who_sent(email):
         if email in addresses(p):
             return {"name": p["name"], "role": p["role"]}
     return None
+
+
+# ---- Standing requests --------------------------------------------------
+
+
+def active_requests() -> list:
+    """The client's live requests, newest first. See client_requests.py for what each kind does."""
+    return list(reversed(client().get("requests") or []))
+
+
+def apply_requests(changes: list, senders: dict, today: str) -> list:
+    """Records the requests a message asked for and returns one line per change.
+
+    changes: [{message_id, kind, value, scope, operation}] as classified from
+    feedback; `senders` maps message_id -> that message's sender address.
+    A `set` replaces the live request of the same kind (the newest wins);
+    `clear` drops it. `add_sender` adds an address to the sender's own entry,
+    so only someone already trusted can widen who is trusted."""
+    data = load()
+    person = next(p for p in data["people"] if p.get("role") == "client")
+    requests = person.setdefault("requests", [])
+    lines = []
+    for change in changes:
+        kind, value = change["kind"], (change.get("value") or "").strip()
+        operation, message_id = change.get("operation", "set"), change["message_id"]
+        if kind not in client_requests.BY_NAME:
+            continue
+        if operation == "clear":
+            before = len(requests)
+            requests[:] = [r for r in requests if r["kind"] != kind]
+            if len(requests) < before:
+                lines.append(f"cleared {kind}")
+            continue
+        if not value:
+            continue
+        if kind == "add_sender":
+            lines += _add_sender(data, senders.get(message_id), value)
+            continue
+        scope = change.get("scope") if client_requests.BY_NAME[kind].once else "standing"
+        requests[:] = [r for r in requests if r["kind"] != kind]  # newest of a kind wins
+        requests.append({"kind": kind, "value": value, "scope": scope if scope in client_requests.SCOPES else "standing",
+                         "text": (change.get("text") or "")[:300], "asked_on": today,
+                         "source_message": message_id})  # fmt: skip
+        lines.append(f"{kind}: {value}" + (" (one run)" if scope == "once" else ""))
+    if lines:
+        person.setdefault("preferences", {})
+        _log_history(person, f"requests: {'; '.join(lines)}", f"feedback on {today}", today)
+        save(data)
+    return lines
+
+
+def _add_sender(data: dict, asked_from: str | None, address: str) -> list:
+    """Adds an address to the entry of the person who asked, if they are the client or operator."""
+    address = address.strip().lower()
+    if "@" not in address or " " in address:
+        return []
+    owner = next((p for p in data["people"] if asked_from and asked_from.lower() in addresses(p)), None)
+    if not owner or owner.get("role") not in ("client", "operator"):
+        return []
+    extra = owner.setdefault("emails", [])
+    if address in addresses(owner) or len(extra) >= 4:
+        return []
+    extra.append(address)
+    return [f"accept mail from {address} as {owner['name']}"]
+
+
+def consume_once_requests(today: str) -> list:
+    """Drops the one-run requests after the run that used them. Returns what went."""
+    data = load()
+    person = next(p for p in data["people"] if p.get("role") == "client")
+    requests = person.get("requests") or []
+    spent = [r for r in requests if r.get("scope") == "once"]
+    if spent:
+        person["requests"] = [r for r in requests if r.get("scope") != "once"]
+        _log_history(person, f"one-run requests done: {'; '.join(r['kind'] + ': ' + r['value'] for r in spent)}",
+                     f"run of {today}", today)  # fmt: skip
+        save(data)
+    return spent
+
+
+def _log_history(person: dict, change: str, source: str, when: str):
+    history = person.setdefault("preferences", {}).setdefault("history", [])
+    history.append({"date": when, "change": change, "source": source})
 
 
 def update_preferences(changes: dict, source: str, when: str = None):

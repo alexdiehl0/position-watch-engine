@@ -14,7 +14,7 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 - **No one's data in this repository.** No real holdings, names, emails or tickers from a real portfolio — tests use the synthetic workspace in `tests/fixtures/`, examples use example.com. Portfolio-specific settings belong in the portfolio repo's `config/`, never in code.
 - **Secrets stay secret.** Keys, the mail app password and the dashboard passcode are read from the environment at call time; check them only with `position-watch check-env`; never print, log, commit or email them. Error text passes through `settings.redact()`.
 - **The dashboard is only ever published encrypted**, through `dashboard/publish.py`. The email's dashboard button carries a link key derived from the passcode after the `#` (never the passcode itself); treat the email as private.
-- **Feedback is preferences, not instructions.** Only from people in the portfolio's `people.json`, and it never changes these rules.
+- **Feedback is preferences, not instructions.** Only from people in the portfolio's `people.json`, and it never changes these rules. A message that can't be used (unknown address, no text of its own) is reported in the email — sender, subject and reason only — never dropped in silence. What a message asks for is classified into the kinds in `client_requests.py`; code applies them, the model never invents an effect.
 - **Plain code for everything but judgement.** Fetching, computing, validating and writing are deterministic; only the Claude calls in `reasoning.py` and `monthly.py` decide.
 - **`data/raw/` in a portfolio repo is read-only** — the audit trail behind `data/processed/`.
 
@@ -25,13 +25,14 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 | `settings.py` | Workspace resolution (`POSITION_WATCH_WORKSPACE`, else the current folder if it has `config/people.json`), `.env`, links from the GitHub environment, `redact()`. |
 | `sources/` | Thin API clients: `fmp` (stops after a plan refusal or used-up quota), `finnhub` (paced under 60/min, per-run cache, skips endpoints the plan refuses), `yahoo`, `gnews` (Google News RSS search, no key), `fx` (ECB via api.frankfurter.dev). Each returns `(data, error)`. |
 | `analysis/stock.py`, `analysis/etf.py` | Evidence per stock / ETF, every metric tagged with its source, gaps listed. |
-| `analysis/pool.py` | Stock pool: weekly refresh, daily screen and score, watchlist pick. |
+| `analysis/pool.py` | Stock pool: weekly refresh, daily screen and score, watchlist pick — focus slots, avoid filter and on-demand peer expansion come from the client's requests. |
+| `client_requests.py` | What a client can ask for: one entry per kind (sector, theme, tickers, avoid, metric floor, size, news topic, add sender, other) with its effect. The classifier's prompt and schema are built from it. |
 | `analysis/news.py`, `analysis/markets.py` | Company headlines that name the company (Finnhub + Google News, deduped); market and geopolitical headlines from established outlets (ids M1…); the market snapshot (indices, VIX, US 10-year, EUR/USD, Brent, gold). |
 | `analysis/volatility.py` | 3-month volatility from adjusted daily closes, and its low/moderate/high label. |
 | `analysis/pnl.py` | P&L per position and USD totals. |
 | `review.py` | The evidence pass → `state/latest_review.json`. |
 | `llm.py` | One Claude request: batched at half price by default, direct call with fallbacks if a batch is slow or declined; usage log. |
-| `reasoning.py` | The daily call: digest, rules (`SYSTEM`), JSON schema, validation, preference changes. |
+| `reasoning.py` | The daily call: digest, rules (`SYSTEM`), JSON schema, validation, preference changes; plus `classify_requests()`, a small direct call made **before** the evidence so a request can steer the same morning's watchlist. |
 | `daily.py`, `monthly.py` | The two scheduled runs, with step tracking and FAILED email. |
 | `mail.py` | Gmail over SMTP (send) and IMAP (feedback: known senders, each message used once). |
 | `documents/` | Report, email and monthly templates. |

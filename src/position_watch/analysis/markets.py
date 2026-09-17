@@ -44,9 +44,10 @@ def snapshot():
     return rows, (f"no Yahoo data for {', '.join(missing)}" if missing else None)
 
 
-def gather() -> dict:
+def gather(topics=()) -> dict:
+    """`topics`: extra searches the client asked for (news_topic requests)."""
     rows, err = snapshot()
-    headlines = news.market_news()
+    headlines = news.market_news(extra_topics=topics)
     gaps = [e for e in [err, *headlines["errors"]] if e]
     return {"snapshot": rows, "headlines": headlines["headlines"], "data_gaps": gaps or None}
 
