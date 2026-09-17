@@ -164,6 +164,45 @@ def test_matching_reaches_the_whole_sector(value, symbol, expected):
     assert pool.matches_request(symbol, entry, _request("sector", value)) is expected
 
 
+def test_belonging_takes_two_ticks():
+    def stock(industry, name):
+        return {"industry": industry, "name": name, "screen": {"passed": True, "score": 1.0}}
+
+    energy = _request("sector", "energy")
+    # the industry line alone is enough: it is worth two ticks
+    assert pool.ticks("XOM", stock("Oil & Gas", "Exxon Mobil"), energy)[0] >= pool.MIN_TICKS
+    # a name is not: a utility called NextEra Energy ticks no box
+    assert pool.ticks("NEE", stock("Utilities", "NextEra Energy Inc"), energy)[0] < pool.MIN_TICKS
+    # but two words of the business do it, even when the industry line is vague
+    score, hit = pool.ticks("XYZ", stock("Diversified", "Crude Offshore Shale Partners"), energy)
+    assert score >= pool.MIN_TICKS and hit == ["crude", "offshore", "shale"]
+    # batteries and storage answer a renewables request
+    assert pool.matches_request(
+        "QS", stock("Electrical Equipment", "Battery Storage Co"), _request("sector", "renewables")
+    )
+
+
+def test_a_theme_he_named_counts_for_itself():
+    lithium = {"industry": "Metals & Mining", "name": "Lithium Americas Corp", "screen": {"passed": True, "score": 1.0}}
+    assert pool.matches_request("LAC", lithium, _request("theme", "lithium"))
+    solar = {"industry": "Semiconductors", "name": "First Solar Inc", "screen": {"passed": True, "score": 1.0}}
+    assert pool.matches_request("FSLR", solar, _request("theme", "solar"))
+
+
+def test_a_portfolio_can_add_its_own_keywords():
+    universe = {**UNIVERSE, "sector_keywords": {"energy": {"signals": ["bunker"]}}}
+    shipper = {"industry": "Marine", "name": "Bunker Fuels Ltd", "screen": {"passed": True, "score": 1.0}}
+    assert not pool.matches_request("BNK", shipper, _request("sector", "energy"))
+    assert pool.matches_request("BNK", shipper, _request("sector", "energy"), universe)  # fuel + bunker
+
+
+def test_a_sector_is_the_sector_not_the_company_name():
+    utility = {"industry": "Utilities", "name": "NextEra Energy Inc", "screen": {"passed": True, "score": 1.0}}
+    assert not pool.matches_request("NEE", utility, _request("sector", "energy"))  # a utility, whatever its name
+    assert pool.matches_request("NEE", utility, _request("theme", "energy"))  # a theme may match the name
+    assert pool.matches_request("NEE", utility, _request("sector", "utilities"))
+
+
 # ---- news and documents --------------------------------------------------
 
 
