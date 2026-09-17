@@ -20,6 +20,12 @@ from position_watch.analysis.stock import volatility_level
 
 ACTION_STATUS = {"buy": "good", "add": "good", "top_up": "good", "hold": "warn", "trim": "crit", "sell": "crit"}
 ACTION_RANK = {"buy": 0, "add": 1, "top_up": 1, "hold": 2, "trim": 3, "sell": 4}
+TRADES_SUBJECT = "Holdings update"
+TRADES_BODY = (
+    "I've made trades. My positions are attached (broker export or a screenshot).\n\n"
+    "Attach the file before sending. A spreadsheet is applied straight away; a screenshot is read and shown "
+    "back to you to confirm first.\n"
+)
 FEEDBACK_SUBJECT = "Portfolio feedback"
 ETF_SECTOR = "ETFs (diversified funds)"
 
@@ -431,5 +437,7 @@ def build(fragment=False) -> dict:
             "subject": FEEDBACK_SUBJECT,
             "mailto": f"mailto:{inbox}?subject={quote(FEEDBACK_SUBJECT)}",
             "ignored": ignored_messages(),
+            "trades_subject": TRADES_SUBJECT,
+            "trades_mailto": f"mailto:{inbox}?subject={quote(TRADES_SUBJECT)}&body={quote(TRADES_BODY)}",
         },
     }

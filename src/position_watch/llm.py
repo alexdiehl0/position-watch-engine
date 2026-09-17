@@ -42,6 +42,20 @@ def base_request(system: str, user: str, schema: dict, max_tokens: int = 64000) 
     }
 
 
+def request_with_files(system: str, user: str, schema: dict, files: list, max_tokens: int = 16000) -> dict:
+    """Like base_request(), with images or PDFs attached. `files`: [(media_type, base64 data)]."""
+    blocks = [
+        {
+            "type": "document" if media == "application/pdf" else "image",
+            "source": {"type": "base64", "media_type": media, "data": data},
+        }  # fmt: skip
+        for media, data in files
+    ]
+    request = base_request(system, user, schema, max_tokens)
+    request["messages"] = [{"role": "user", "content": [*blocks, {"type": "text", "text": user}]}]
+    return request
+
+
 def ask(request: dict, client=None, mode: str | None = None, max_wait: int = 2700, poll: int = 30, sleep=time.sleep):
     """Returns (message, batched)."""
     client = client or anthropic.Anthropic()

@@ -93,3 +93,23 @@ def test_forward_pe_stands_in_for_a_missing_history():
     cheaper, why = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=14)
     flat, _ = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=20)
     assert cheaper > flat and "vs forward 14.0, no 5-yr history" in why
+
+
+def test_an_index_can_seed_the_pool_when_the_plan_allows_it(monkeypatch, workspace):
+    monkeypatch.setattr(
+        pool.fmp, "get_index_constituents", lambda index: ([{"symbol": "AAA"}, {"symbol": "BBB"}], None)
+    )
+    monkeypatch.setattr(pool.finnhub, "get_peers", lambda symbol, grouping: ([], None))
+    monkeypatch.setattr(pool.finnhub, "get_company_profile", lambda symbol: ({"name": symbol}, None))
+    universe = {"seeds": {}, "pool_cap": 50, "index_seeds": ["sp500"], "refresh_days": 7}
+    p = {"stocks": {}}
+    pool.refresh(p, universe, [], date(2026, 1, 2))
+    assert sorted(p["stocks"]) == ["AAA", "BBB"] and p["stocks"]["AAA"]["via"] == "in the SP500"
+
+
+def test_a_refused_index_is_a_note_not_a_failure(monkeypatch, workspace):
+    monkeypatch.setattr(pool.fmp, "get_index_constituents", lambda index: (None, "HTTP 402: needs a paid plan"))
+    monkeypatch.setattr(pool.finnhub, "get_peers", lambda symbol, grouping: ([], None))
+    universe = {"seeds": {}, "pool_cap": 50, "index_seeds": ["sp500"], "refresh_days": 7}
+    notes = pool.refresh({"stocks": {}}, universe, [], date(2026, 1, 2))
+    assert any("sp500 constituents: HTTP 402" in n for n in notes)

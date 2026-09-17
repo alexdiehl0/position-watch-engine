@@ -32,7 +32,7 @@ from email.message import EmailMessage
 from position_watch import people, settings
 
 # Replies to the daily email (current and earlier subject lines) and notes from the dashboard feedback box.
-FEEDBACK_SUBJECTS = ("Portfolio feedback", "Re: AI STOCK PORTFOLIO REVIEW", "Re: Portfolio Review")
+FEEDBACK_SUBJECTS = ("Portfolio feedback", "Holdings update", "Re: AI STOCK PORTFOLIO REVIEW", "Re: Portfolio Review")
 SENDER_NAME = "AI Stock Portfolio Review"
 
 
@@ -81,6 +81,26 @@ def mark_used(messages: list, today: str):
     _used_path().write_text(json.dumps(used, indent=2, sort_keys=True) + "\n")
 
 
+# Files a client might send about his own holdings: a broker export or a screenshot.
+KEEPS = ("text/csv", "application/vnd.ms-excel", "application/pdf", "image/png", "image/jpeg", "image/webp",
+         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain")  # fmt: skip
+MAX_ATTACHMENT_BYTES = 12_000_000
+
+
+def _attachments(msg) -> list:
+    """[{filename, content_type, data}] for the files worth keeping; oversized ones are skipped."""
+    out = []
+    for part in msg.iter_attachments():
+        media = (part.get_content_type() or "").lower()
+        name = part.get_filename() or "attachment"
+        if media not in KEEPS and not name.lower().endswith((".csv", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg")):
+            continue
+        data = part.get_payload(decode=True) or b""
+        if 0 < len(data) <= MAX_ATTACHMENT_BYTES:
+            out.append({"filename": name, "content_type": media, "data": data})
+    return out
+
+
 _QUOTE_START = re.compile(r"^(On .+wrote:|-----Original Message-----|From: .+)$")
 
 
@@ -121,12 +141,13 @@ def read_message(raw: bytes) -> dict | None:
     if not who:
         return {"usable": False, "message_id": message_id, "from": sender, "subject": subject,
                 "reason": "that address isn't in your people file"}  # fmt: skip
-    text = _own_words(_plain_text(msg))
-    if not text:
+    text, files = _own_words(_plain_text(msg)), _attachments(msg)
+    if not text and not files:
         return {"usable": False, "message_id": message_id, "from": sender, "subject": subject,
                 "reason": "the message had no text of its own (only quoted email)"}  # fmt: skip
     return {
         "usable": True,
+        "attachments": files,
         "message_id": message_id,
         "from": sender,
         "name": who["name"],

@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from position_watch import handoff, llm, mail, people, reasoning, review, settings, suggestion_log
-from position_watch.analysis import pnl
+from position_watch.analysis import holdings_update, pnl
 from position_watch.dashboard import publish, render
 from position_watch.dashboard.view import load_inputs
 from position_watch.documents import render as documents
@@ -104,6 +104,16 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
             applied = people.apply_requests(changes, {m["message_id"]: m.get("from") for m in feedback}, day)
             for line in applied:
                 notes.append(f"Applied what you asked for — {line}")
+
+            step("check for a holdings update")  # before the evidence: today's numbers use the new holdings
+            if any(c["kind"] == "confirm_holdings" for c in changes):
+                confirmed = holdings_update.apply_pending(day)
+                if confirmed:
+                    notes.append("Applied the holdings update you confirmed — " + "; ".join(confirmed))
+            upload = holdings_update.process(feedback, day, client=client)
+            notes += upload["notes"]
+            if upload["usage"]:
+                llm.log_usage(day, {**upload["usage"], "task": "holdings"})
 
         step("gather evidence")
         results = review.run()

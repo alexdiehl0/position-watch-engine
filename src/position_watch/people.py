@@ -123,6 +123,8 @@ def apply_requests(changes: list, senders: dict, today: str) -> list:
         if kind == "add_sender":
             lines += _add_sender(data, senders.get(message_id), value)
             continue
+        if kind in client_requests.ACTIONS:  # carried out by the run, not remembered
+            continue
         scope = change.get("scope") if client_requests.BY_NAME[kind].once else "standing"
         requests[:] = [r for r in requests if r["kind"] != kind]  # newest of a kind wins
         requests.append({"kind": kind, "value": value, "scope": scope if scope in client_requests.SCOPES else "standing",
