@@ -157,6 +157,16 @@ def cmd_email_preview(args):
     _print({"subject": msg["subject"], "html": args.html, "text": args.text})
 
 
+def cmd_check_data(args):
+    """What the current data keys can reach — run it after changing plans."""
+    from position_watch import data_plan
+
+    rows = data_plan.probe()
+    width = max(len(what) for _, what, _ in rows) + 2
+    for provider, what, verdict in rows:
+        print(f"{provider:9} {what:<{width}} {verdict}")
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="position-watch", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -185,6 +195,9 @@ def build_parser():
     sub.add_parser("compliance", help="the closing note and action labels").set_defaults(func=cmd_compliance)
     sub.add_parser("people", help="print the people file").set_defaults(func=cmd_people)
     sub.add_parser("recipients", help="emails that get the daily review").set_defaults(func=cmd_recipients)
+    sub.add_parser("check-data", help="what the data keys can reach (run after changing plans)").set_defaults(
+        func=cmd_check_data
+    )
     p = sub.add_parser("who-sent", help="name and role for a sender, or null if unknown")
     p.add_argument("email")
     p.set_defaults(func=cmd_who_sent)

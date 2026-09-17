@@ -38,6 +38,7 @@ The engine of Position Watch, a personal portfolio research assistant. This publ
 | `documents/` | Report, email and monthly templates. |
 | `dashboard/` | `view.py` (numbers), `templates/` + `static/` (look), `render.py` (build), `publish.py` (encrypt). |
 | `scaffold/`, `init.py` | The portfolio repository template: config, empty data files, workflows, README. |
+| `data_plan.py` | `check-data`: one small request per endpoint, reporting which are open on the current keys — run it after changing plans. |
 | `tests/` | pytest on a synthetic workspace; fake Claude client and mailbox; no network. |
 | `docs/` | `getting-started.md` (set up a portfolio), `architecture.md` (system map — update it when a flow changes). |
 
@@ -57,7 +58,7 @@ Every judgement rests on specific metrics — never a vague "looks undervalued".
 - **Portfolio as a whole (monthly):** concentration (top-3 weight, effective number of positions), sector / currency / asset mix, value-weighted volatility and beta with coverage, income, change since last month.
 
 ## Data sources
-Per-metric fallback **FMP → Finnhub → Yahoo**; the first source to return a metric wins and `sources` records which. FMP's free plan covers few symbols (250 calls/day); Finnhub's free plan covers most US stocks (60 calls/minute; price targets and dividend history paywalled); Yahoo is unofficial and often blocked from cloud servers. News: Finnhub company news (US) and market news (Reuters, CNBC…), plus Google News RSS searches — company names for everyone, market topics kept to established outlets; clickbait, press-release wires and content farms are dropped. Exchange rates: ECB via api.frankfurter.dev, Yahoo fallback. Output cites each figure's source and when it was pulled.
+Per-metric fallback **FMP → Finnhub → Yahoo**; the first source to return a metric wins and `sources` records which. FMP's free plan covers few symbols (250 calls/day); Finnhub's free plan covers most US stocks (60 calls/minute; price targets and dividend history paywalled); Yahoo is unofficial and often blocked from cloud servers. Non-US stocks in the pool (the `Europe` seed group) are screened through Yahoo instead, since neither free plan covers them; their P/E history is missing, so value rests on forward vs trailing P/E and the yield, and the gap is stated. `position-watch check-data` says what the current keys reach. News: Finnhub company news (US) and market news (Reuters, CNBC…), plus Google News RSS searches — company names for everyone, market topics kept to established outlets; clickbait, press-release wires and content farms are dropped. Exchange rates: ECB via api.frankfurter.dev, Yahoo fallback. Output cites each figure's source and when it was pulled.
 
 ## Output wording
 Plain labels Buy / Add / Hold / Trim / Sell, Top up / Hold for ETFs (lower-case codes in state files). Every email, report and dashboard view ends with `compliance.NOTE`. Before offering Position Watch to people outside your own circle, get advice on investment-advice regulation (e.g. MiFID II in the EU) and data protection; the short note is written for private use.

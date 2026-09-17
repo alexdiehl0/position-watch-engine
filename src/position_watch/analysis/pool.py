@@ -26,7 +26,7 @@ from datetime import date, timedelta
 
 from position_watch import client_requests, settings, suggestion_log
 from position_watch.analysis import volatility
-from position_watch.sources import finnhub, yahoo
+from position_watch.sources import finnhub, fx, yahoo
 
 
 def universe_path():
@@ -89,18 +89,19 @@ def refresh(pool, universe, held, today):
     stocks, notes, added = pool.setdefault("stocks", {}), [], 0
     today_s = today.isoformat()
 
-    def add(symbol, via):
+    def add(symbol, via, market="us"):
         nonlocal added
-        if symbol in stocks or not US_TICKER.fullmatch(symbol):
+        if symbol in stocks or (market == "us" and not US_TICKER.fullmatch(symbol)):
             return
-        stocks[symbol] = {"added": today_s, "via": via}
+        stocks[symbol] = {"added": today_s, "via": via, **({"market": market} if market != "us" else {})}
         added += 1
 
     seeded = set()
     for group, symbols in universe["seeds"].items():
+        market = "europe" if group.strip().lower() == "europe" else "us"  # screened through Yahoo
         for s in symbols:
             seeded.add(s)
-            add(s, f"starting list: {group}")
+            add(s, f"starting list: {group}", market)
     for s in stocks:
         stocks[s]["seed"] = s in seeded
 
@@ -136,7 +137,13 @@ def refresh(pool, universe, held, today):
             del stocks[s]
 
     for s, e in stocks.items():
-        if "name" not in e:
+        if "name" in e:
+            continue
+        if e.get("market") == "europe":  # Finnhub's free plan has no non-US profiles
+            info, err = yahoo.get_info(s)
+            e["name"] = (info or {}).get("longName") or (info or {}).get("shortName")
+            e["industry"] = (info or {}).get("industry") or (info or {}).get("sector")
+        else:
             profile, err = finnhub.get_company_profile(s)
             e["name"] = (profile or {}).get("name") or None
             e["industry"] = (profile or {}).get("finnhubIndustry") or None
@@ -151,7 +158,7 @@ def refresh(pool, universe, held, today):
 MAX_PE_FOR_VALUE = 40
 
 
-def _score(pe, median_pe, yld, payout):
+def _score(pe, median_pe, yld, payout, forward_pe=None):
     """Plain-arithmetic fit to the client's preferences, roughly -2 to +2:
     discount to its own 5-year median P/E (up to +/-1, capped at 50%; no
     credit above MAX_PE_FOR_VALUE), dividend yield (up to +1 at 8%), minus
@@ -170,6 +177,12 @@ def _score(pe, median_pe, yld, payout):
             f"P/E {pe:.1f} vs 5-yr median {median_pe:.1f} ({abs(gap) * 100:.0f}% {'below' if gap >= 0 else 'above'})"
             + (f", but over {MAX_PE_FOR_VALUE}" if pe > MAX_PE_FOR_VALUE and gap > 0 else "")
         )
+    elif pe is not None and forward_pe and pe > 0:
+        # No P/E history (the free data plans have none outside the US): the
+        # most we can say is whether earnings are expected to grow into it.
+        gap = (pe - forward_pe) / pe
+        score += max(-0.3, min(0.3, gap))
+        parts.append(f"P/E {pe:.1f} vs forward {forward_pe:.1f}, no 5-yr history")
     elif pe is not None:
         parts.append(f"P/E {pe:.1f} (no 5-yr history)")
     if yld:
@@ -198,12 +211,101 @@ def screen_subset(pool, universe, today, symbols):
         pool["stocks"][s] = entry
 
 
+def _f(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _screen_non_us(symbol, entry, universe, today, closes, rates):
+    """Screens one non-US stock and stores the result, the same shape as the US path."""
+    values, gaps = _screen_yahoo(symbol, rates)
+    vol = volatility.from_closes((closes or {}).get(symbol) or [])
+    result = {
+        "date": today.isoformat(),
+        "pe": values.get("pe"),
+        "five_yr_median_pe": None,
+        "dividend_yield_pct": values.get("dividend_yield_pct"),
+        "payout_ratio_pct": values.get("payout_ratio_pct"),
+        "market_cap_usd_m": values.get("market_cap_usd_m"),
+        "volatility_3m_pct": vol,
+        "volatility_source": volatility.SOURCE if vol is not None else None,
+        "beta": values.get("beta"),
+        "sector": values.get("sector"),
+        "currency": values.get("currency"),
+        "score": None,
+        "why": None,
+        "passed": False,
+        "filtered_out": None,
+        "gaps": gaps or None,
+    }
+    cap, floor = result["market_cap_usd_m"], universe["min_market_cap_usd_m"]
+    if not values:
+        result["filtered_out"] = "no data from Yahoo"
+    elif cap is not None and cap < floor:
+        result["filtered_out"] = f"market cap under ${floor / 1000:.0f}B"
+    elif result["pe"] is None and not result["dividend_yield_pct"]:
+        result["filtered_out"] = "no P/E or dividend to judge"
+    else:  # a missing market cap is a gap, not a reason to drop it
+        result["score"], result["why"] = _score(result["pe"], None, result["dividend_yield_pct"],
+                                                result["payout_ratio_pct"], values.get("forward_pe"))  # fmt: skip
+        result["passed"] = True
+    entry["screen"] = result
+
+
+def _screen_yahoo(symbol: str, rates: dict) -> tuple[dict, list]:
+    """A non-US stock's screen, from Yahoo: the free US data plans don't cover
+    them. Yahoo has no 5-year P/E history, so value rests on forward vs
+    trailing P/E and the yield; what's missing is said, never filled in."""
+    info, err = yahoo.get_info(symbol)
+    if err or not info:
+        return {}, [err or f"no Yahoo fundamentals for {symbol}"]
+    gaps = ["five_yr_median_pe: Yahoo has no P/E history"]
+    currency = (info.get("currency") or "USD").upper()
+    if currency == "GBP":  # London prices come in pence
+        currency = "GBP"
+    cap = _f(info.get("marketCap"))
+    if cap is not None and currency != "USD":
+        if currency not in rates:
+            rate, rate_err = fx.get_rate(currency, "USD")
+            rates[currency] = (rate or {}).get("rate")
+            if rate_err:
+                gaps.append(f"{currency}->USD rate: {rate_err}")
+        cap = cap * rates[currency] if rates.get(currency) else None
+    if cap is None:
+        gaps.append("market cap: not returned by Yahoo")
+    return {
+        "pe": _f(info.get("trailingPE")),
+        "forward_pe": _f(info.get("forwardPE")),
+        "five_yr_median_pe": None,
+        "dividend_yield_pct": _to_pct(_f(info.get("dividendYield"))),
+        "payout_ratio_pct": (_f(info.get("payoutRatio")) or 0) * 100 if info.get("payoutRatio") is not None else None,
+        "market_cap_usd_m": cap / 1e6 if cap else None,
+        "sector": info.get("sector"),
+        "currency": currency,
+        "volatility_3m_pct": None,
+        "beta": _f(info.get("beta3Year") or info.get("beta")),
+    }, gaps
+
+
+def _to_pct(value):
+    """Yahoo reports a yield either as 4.5 or as 0.045, depending on the field's day."""
+    if value is None:
+        return None
+    return round(value * 100, 3) if value < 1 else round(value, 3)
+
+
 def screen(pool, universe, today):
-    """One Finnhub call per pool stock, plus one Yahoo request for everyone's
-    daily prices (volatility is computed from those, Finnhub's figure is the
-    fallback). Stores each result on the entry."""
+    """One Finnhub call per US pool stock (Yahoo fundamentals for the rest),
+    plus one Yahoo request for everyone's daily prices (volatility is computed
+    from those, the vendor's figure is the fallback). Stores each result on the entry."""
     closes, _ = yahoo.get_closes_many(list(pool["stocks"]))
+    rates: dict = {}
     for symbol, entry in pool["stocks"].items():
+        if entry.get("market") == "europe" or not US_TICKER.fullmatch(symbol):
+            _screen_non_us(symbol, entry, universe, today, closes, rates)
+            continue
         data, err = finnhub.get_ratios(symbol)
         m = (data or {}).get("metric") or {}
         pe_series = (data or {}).get("series", {}).get("annual", {}).get("pe", [])
