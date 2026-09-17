@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 from position_watch import compliance, instruments, llm, mail, people, settings, suggestion_log
-from position_watch.analysis import pnl
+from position_watch.analysis import pnl, scorecard
 from position_watch.dashboard import view
 from position_watch.documents import render as documents
 
@@ -50,6 +50,10 @@ for dividends?
 Say when coverage is partial (e.g. volatility known for only part of the portfolio).
 - call_patterns: what the month's calls show -- sustained calls, calls that changed and why, recurring themes. \
 Describe how the suggestions evolved; never claim a past call was right or wrong.
+- against_the_index compares the client's own cash flows with the same money put into the S&P 500 on the same \
+days, and scores each call against the index over exactly its own days. Say plainly how the portfolio stands \
+against simply buying the index, and what the call scores do and don't yet show (how many calls, how long they \
+have run). A few weeks of calls prove nothing: say so rather than reading a trend into them.
 - to_consider: things worth looking into, phrased as questions or areas to review, not as orders.
 - Keep each list item to one or two sentences."""
 
@@ -152,7 +156,8 @@ def record_snapshot(month: str, snap: dict):
 
 
 def facts(today: date | None = None) -> dict:
-    """Everything the monthly review is based on, computed from the workspace: no API calls."""
+    """Everything the monthly review is based on: the workspace's own files, plus
+    one Yahoo request for the index and the called stocks (the scorecard)."""
     today = today or datetime.now(timezone.utc).date()
     month = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")  # the month just ended
     holdings, review, _ = view.load_inputs()
@@ -164,19 +169,26 @@ def facts(today: date | None = None) -> dict:
             "value_change_usd": round(snap["totals"]["value_usd"] - float(prev["value_usd"])),
             "dividends_change_usd": round(snap["totals"]["dividends_usd"] - float(prev["dividends_usd"])),
         }
-    return {"month": month, "portfolio": snap, "calls_over_the_month": history(suggestion_log.load_entries(), today)}
+    return {
+        "month": month,
+        "portfolio": snap,
+        "calls_over_the_month": history(suggestion_log.load_entries(), today),
+        "scorecard": scorecard.compute(totals=snap["totals"], today=today),
+    }
 
 
 def run(send_email: bool = True, client=None, today: date | None = None, mode=None) -> dict:
     today = today or datetime.now(timezone.utc).date()
     f = facts(today)
     month, snap, looked_back = f["month"], f["portfolio"], f["calls_over_the_month"]
+    card = f["scorecard"]
     prefs = {k: v for k, v in (people.client().get("preferences") or {}).items() if k != "history"}
     compact = {"separators": (",", ":"), "default": str}
     user = (
         f"Month reviewed: {month}\n\n<client_preferences>\n{json.dumps(prefs, **compact)}\n</client_preferences>\n\n"
         f"<portfolio>\n{json.dumps(snap, **compact)}\n</portfolio>\n\n"
         f"<calls_over_the_month>\n{json.dumps(looked_back, **compact)}\n</calls_over_the_month>\n\n"
+        f"<against_the_index>\n{json.dumps(card, **compact)}\n</against_the_index>\n\n"
         "Review the portfolio as a whole."
     )
     message, batched = llm.ask(llm.base_request(SYSTEM, user, SCHEMA, 32000), client=client, mode=mode)
@@ -187,7 +199,8 @@ def run(send_email: bool = True, client=None, today: date | None = None, mode=No
     record_snapshot(month, snap)
     path = settings.reports_dir() / "monthly" / f"{month}-review.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    ctx = {"month": month, "snap": snap, "history": looked_back, "answer": answer, "model": usage["model"]}
+    ctx = {"month": month, "snap": snap, "history": looked_back, "answer": answer, "model": usage["model"],
+           "card": card}  # fmt: skip
     path.write_text(documents.render_template("monthly.md", **ctx))
     if send_email:
         link = settings.reports_url()

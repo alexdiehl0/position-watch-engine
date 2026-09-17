@@ -44,6 +44,39 @@ A look back over the past month, computed from this portfolio's own records (no 
 - {{ s }}
 {% endfor %}
 
+## Against simply buying the index
+
+{% if card.against_index %}
+{% set a = card.against_index %}
+| | Put in | Worth now | Return |
+|---|---|---|---|
+| This portfolio | {{ a.net_invested_usd | usd }} | {{ a.portfolio_value_usd | usd }} | {{ a.portfolio_return_pct | pct }} |
+| The same money in the {{ a.benchmark }} | {{ a.net_invested_usd | usd }} | {{ a.index_value_usd | usd }} | {{ a.index_return_pct | pct }} |
+
+Each purchase and sale since {{ a.first_trade }} replayed into the index on the day it happened, prices to {{ a.as_of }} [yfinance]. Difference: **{{ a.difference_pct | pct }}**. The portfolio figure counts today's positions plus dividends received.
+{% if a.gaps %}
+Gaps: {{ a.gaps | join("; ") }}
+{% endif %}
+{% else %}
+Not available this month{% if card.error %}: {{ card.error }}{% endif %}.
+{% endif %}
+
+{% if card.calls and card.calls.by_action %}
+### How the daily calls have done
+
+| Called | Calls | Beat the {{ card.calls.benchmark }} | Average difference |
+|---|---|---|---|
+{% for row in card.calls.by_action %}
+| {{ row.action }} | {{ row.calls }} | {{ row.beat_the_index }} | {{ row.average_difference_pct | pct }} |
+{% endfor %}
+
+Each call measured from the day it was first made to today, against the index over the same days{% if card.calls.too_recent %}; {{ card.calls.too_recent }} too recent to count{% endif %}.
+{% elif card.calls %}
+### How the daily calls have done
+
+Too early: every call is less than three weeks old.
+{% endif %}
+
 ## How the calls evolved
 
 {% for s in answer.call_patterns %}

@@ -57,6 +57,10 @@ def site_dir() -> Path:
     return workspace() / "site"
 
 
+def transactions_csv() -> Path:
+    return data_dir() / "processed" / "transactions.csv"
+
+
 def holdings_csv() -> Path:
     return data_dir() / "processed" / "holdings.csv"
 
