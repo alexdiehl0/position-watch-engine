@@ -349,6 +349,13 @@ def news(review, limit=10):
     return items[:limit]
 
 
+def ignored_messages():
+    """Addresses whose messages couldn't be used, newest first (state/ignored_messages.json)."""
+    known = _load_json(settings.state_dir() / "ignored_messages.json") or {}
+    rows = [{"address": a, **v} for a, v in known.items()]
+    return sorted(rows, key=lambda r: r.get("last_seen") or "", reverse=True)
+
+
 def excluded(review):
     groups = {}
     for e in (review or {}).get("excluded", []):
@@ -412,5 +419,6 @@ def build(fragment=False) -> dict:
             "to": inbox,
             "subject": FEEDBACK_SUBJECT,
             "mailto": f"mailto:{inbox}?subject={quote(FEEDBACK_SUBJECT)}",
+            "ignored": ignored_messages(),
         },
     }

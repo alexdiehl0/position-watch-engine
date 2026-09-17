@@ -25,6 +25,12 @@ Every figure below comes from live FMP, Finnhub and yfinance calls made during t
 
 **Carried over:** {{ calls.context_note }}
 
+{% if notes %}
+{% for n in notes %}
+**Note:** {{ n }}
+{% endfor %}
+{% endif %}
+
 {% if markets.snapshot or markets.briefing %}
 ## Markets & world
 

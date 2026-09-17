@@ -25,6 +25,9 @@ CALLS = {
     "preference_changes": [{"message_id": "<m1@example.com>", "field": "avoid", "operation": "add", "value": "tobacco"}],
 }  # fmt: skip
 
+IGNORED = [{"usable": False, "message_id": "<x@example.com>", "from": "stranger@example.com",
+            "subject": "Portfolio feedback", "reason": "that address isn't in your people file"}]  # fmt: skip
+
 FEEDBACK = [{"message_id": "<m1@example.com>", "name": "Client", "role": "client", "date": "Fri, 2 Jan 2026",
              "subject": "Re: Portfolio Review 2026-01-01", "text": "Please avoid tobacco from now on."}]  # fmt: skip
 

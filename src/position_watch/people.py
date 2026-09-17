@@ -1,6 +1,7 @@
 """Deterministic access to config/people.json: who uses the system, who gets
 the daily email, whose inbox holds the feedback, and the client's preference
-profile.
+profile. A person may have several addresses (`email` plus `emails`); feedback
+counts from any of them, and the first is where the daily email goes.
 
 The daily routine decides *what* a piece of feedback means; this module only
 reads and writes the file. A lasting preference found in feedback (e.g. "no
@@ -42,7 +43,7 @@ def people():
 
 
 def recipients():
-    """Emails of everyone who should get the daily review."""
+    """Emails of everyone who should get the daily review (their first address)."""
     return [p["email"] for p in people() if p.get("receives_daily_email") and p.get("email")]
 
 
@@ -71,11 +72,17 @@ def feedback_inbox():
     return os.environ.get("MAIL_USER") or routine_owner()["email"]
 
 
+def addresses(person: dict) -> list:
+    """Every address that counts as this person: `email` plus any in `emails`."""
+    listed = [person.get("email"), *(person.get("emails") or [])]
+    return [a.strip().lower() for a in listed if a]
+
+
 def who_sent(email):
     """Name and role for a feedback sender's address, or None if unknown."""
     email = (email or "").strip().lower()
     for p in people():
-        if p.get("email") and p["email"].lower() == email:
+        if email in addresses(p):
             return {"name": p["name"], "role": p["role"]}
     return None
 

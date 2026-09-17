@@ -12,4 +12,12 @@
       <span class="fb-status" id="fb-status" role="status" aria-live="polite"></span>
     </div>
   </form>
+  {% if feedback.ignored -%}
+  <h3 class="subhead">Messages that couldn&rsquo;t be used</h3>
+  <ul class="ignored">
+    {%- for m in feedback.ignored %}
+    <li><span class="ticker">{{ m.address }}</span><span>{{ m.reason }} &mdash; to accept it, reply to the daily email with &ldquo;add {{ m.address }}&rdquo;</span><span class="src"><span class="num">{{ m.last_seen }}</span>{% if m.messages > 1 %} · {{ m.messages }} messages{% endif %}</span></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
 </section>

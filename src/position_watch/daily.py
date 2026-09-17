@@ -83,10 +83,16 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         yesterday = handoff.load_handoff()
 
         step("read feedback")
+        feedback = []
         try:
-            feedback = mail.fetch_feedback() if send_email else []
+            if send_email:
+                feedback, ignored = mail.fetch_feedback()
+                for item in mail.record_ignored(ignored, day):  # each address named once
+                    notes.append(
+                        f"A message from {item['from']} was ignored: {item['reason']}. "
+                        f"To accept it, reply: add {item['from']}"
+                    )
         except Exception as exc:  # feedback is optional; the review still runs
-            feedback = []
             notes.append(f"feedback not read today: {settings.redact(exc)}")
 
         step("gather evidence")
@@ -121,6 +127,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
                 summary_line=summary_line,
                 run=results["run"],
                 model=usage["model"],
+                notes=list(notes),
             )  # fmt: skip
         )
 
