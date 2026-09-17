@@ -2,6 +2,13 @@ Monthly review — {{ month }}
 
 {{ answer.overview }}
 
+{% if card.against_index %}
+Against simply buying the index
+- This portfolio: {{ card.against_index.portfolio_return_pct | pct }} on {{ card.against_index.net_invested_usd | usd }} put in
+- The same money in the {{ card.against_index.benchmark }}: {{ card.against_index.index_return_pct | pct }}
+- Difference: {{ card.against_index.difference_pct | pct }}
+{% endif %}
+
 Strengths
 {% for s in answer.strengths %}
 - {{ s }}
