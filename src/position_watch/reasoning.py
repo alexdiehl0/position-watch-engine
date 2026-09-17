@@ -15,7 +15,7 @@ direct call with `fallbacks: "default"`.
 
 import json
 
-from position_watch import llm, people
+from position_watch import client_requests, llm, people
 
 MAX_TOKENS = 64000  # streamed, so no HTTP timeout; thinking + a full day's calls fit well inside
 
@@ -131,6 +131,64 @@ preference change with that message's id; one-off comments stay as today's conte
 acted on in feedback_applied.
 
 Return one entry per symbol given, in every list, using the symbols exactly as given."""
+
+
+REQUEST_SCHEMA = _obj(
+    {
+        "requests": {
+            "type": "array",
+            "description": "One entry per request found; [] when the messages contain none.",
+            "items": _obj(
+                {
+                    "message_id": {"type": "string"},
+                    "kind": {"type": "string", "enum": list(client_requests.NAMES)},
+                    "value": {"type": "string", "description": "As described for that kind; '' to clear it."},
+                    "scope": {"type": "string", "enum": list(client_requests.SCOPES)},
+                    "operation": {"type": "string", "enum": ["set", "clear"]},
+                    "text": {"type": "string", "description": "The client's own words, shortened."},
+                }
+            ),
+        }
+    }
+)
+
+REQUEST_SYSTEM = """You sort a private portfolio client's emails into requests his assistant can act on. \
+You decide nothing about his portfolio; you only classify, and code applies what you return.
+
+The kinds of request, and what each one makes the assistant do:
+{kinds}
+
+Rules:
+- Only what the message actually asks for. A remark with nothing to do ("nice work", "I like dividends") \
+returns no request; lasting preferences are handled elsewhere.
+- scope "once" for a single run ("just tomorrow", "in the next report only"), otherwise "standing". \
+A request naming a date that has already passed is spent: return nothing for it.
+- operation "clear" (with value "") when he asks to stop something ("back to normal", "no more energy focus").
+- Something asked for that fits no kind above is kind "other", with his words in value, so it is shown \
+rather than lost. Never invent a kind or an effect."""
+
+
+def classify_requests(feedback: list, date: str, client=None, mode: str = "direct") -> tuple[list, dict]:
+    """Sorts today's messages into requests (see client_requests.py). A small
+    direct call, made before the evidence is gathered, so a request asked for
+    today's run can steer today's watchlist. Returns (changes, usage)."""
+    if not feedback:
+        return [], {}
+    messages = "\n".join(
+        f'<message id="{m["message_id"]}" from="{m["name"]} ({m["role"]})" date="{m["date"]}">\n{m["text"]}\n</message>'
+        for m in feedback
+    )
+    system = REQUEST_SYSTEM.format(kinds=client_requests.prompt_section())
+    request = llm.base_request(system, f"Today is {date}.\n\n{messages}\n\nWhat is he asking for?",
+                               REQUEST_SCHEMA, max_tokens=8000)  # fmt: skip
+    message, batched = llm.ask(request, client=client, mode=mode)
+    answer = llm.json_answer(message)
+    known = {m["message_id"] for m in feedback}
+    changes = [
+        c for c in answer.get("requests", [])
+        if c.get("message_id") in known and c.get("kind") in client_requests.BY_NAME
+    ]  # fmt: skip
+    return changes, llm.usage(message, batched)
 
 
 def _digest(review: dict) -> dict:

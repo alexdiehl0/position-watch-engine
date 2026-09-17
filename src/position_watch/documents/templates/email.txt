@@ -2,6 +2,11 @@
 {{ long_date }}
 
 Value {{ totals.value_usd | usd }}  ·  Return {{ totals.pnl_usd | usd(signed=true) }} ({{ totals.pnl_pct | pct }})  ·  Dividends {{ totals.dividends_usd | usd }}
+{% if requests %}
+
+YOU ASKED FOR
+{{ requests | join(" · ") }}
+{% endif %}
 {% if markets.snapshot or markets.briefing %}
 
 MARKETS & WORLD

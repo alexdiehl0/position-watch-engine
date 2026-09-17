@@ -9,7 +9,7 @@
     {%- for c in watchlist.cards %}
     <li class="watch"><div class="watch-head">{{ company(c.company) }}{{ pill(c.action) }}</div>
       {%- if c.pool %}<div class="chips">
-        {%- if c.pool.slot == "top" %}<span class="chip">Top of today&rsquo;s screen</span>{% else %}<span class="chip">Rotation pick</span>{% endif -%}
+        {%- if c.pool.slot == "focus" %}<span class="chip chip-new">You asked for this</span>{% elif c.pool.slot == "top" %}<span class="chip">Top of today&rsquo;s screen</span>{% else %}<span class="chip">Rotation pick</span>{% endif -%}
         {%- if c.pool.times_on_watchlist == 1 %}<span class="chip chip-new">First time on the watchlist</span>{% else %}<span class="chip">On the watchlist {{ c.pool.times_on_watchlist }} times</span>{% endif -%}
       </div>{% endif -%}
       {%- if c.pool.screen %}<p class="watch-screen"><span class="why">Screen</span>{{ c.pool.screen }} <span class="muted">[Finnhub]</span></p>{% endif -%}

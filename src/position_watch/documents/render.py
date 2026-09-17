@@ -10,7 +10,7 @@ from datetime import date
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
-from position_watch import compliance
+from position_watch import client_requests, compliance
 from position_watch.analysis import markets
 from position_watch.analysis.stock import volatility_level
 
@@ -97,8 +97,13 @@ def email_rows(calls: list, evidence: dict, names: dict | None = None, positions
     return sorted(rows, key=lambda r: r["order"])
 
 
+def _request_lines(requests) -> list:
+    return [client_requests.describe(r) for r in (requests or [])]
+
+
 def report(**ctx) -> str:
     backdrop = markets.display(ctx.get("review"), (ctx.get("calls") or {}).get("market_briefing"))
+    ctx["requests"] = _request_lines(ctx.get("requests"))
     return _env().get_template("report.md").render(markets=backdrop, **ctx)
 
 
@@ -113,6 +118,7 @@ def email(
     notes=(),
     names: dict | None = None,
     positions: dict | None = None,
+    requests=(),
 ) -> dict:
     """The daily email: {"subject", "text", "html"}. `positions`: {symbol: P&L row from
     pnl.compute()}, for the performance shown under "Your stocks"."""
@@ -120,6 +126,7 @@ def email(
         "long_date": date.fromisoformat(day).strftime("%A, %-d %B %Y"),
         "totals": totals,
         "markets": markets.display(review, calls.get("market_briefing")),
+        "requests": _request_lines(requests),
         "sections": [
             ("Your stocks", email_rows(calls.get("holdings", []), review.get("holdings", {}), names, positions or {})),
             ("Core ETFs", email_rows(calls.get("etfs", []), review.get("etfs", {}), names)),

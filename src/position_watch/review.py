@@ -15,7 +15,7 @@ import csv
 import json
 from datetime import date, datetime, timezone
 
-from position_watch import instruments, settings
+from position_watch import instruments, people, settings
 from position_watch.analysis import markets
 from position_watch.analysis import pool as stock_pool
 from position_watch.analysis.etf import evaluate_etf
@@ -30,6 +30,7 @@ def load_open_holdings() -> list:
 
 def run(include_candidates: bool = True) -> dict:
     started = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    requests = people.active_requests()  # what the client has asked for (client_requests.py)
     finnhub.reset_run_state()
     fmp.reset_run_state()
     holdings = load_open_holdings()
@@ -57,8 +58,13 @@ def run(include_candidates: bool = True) -> dict:
         pool_notes = []
         if stock_pool.needs_refresh(pool, universe, today):
             pool_notes = stock_pool.refresh(pool, universe, sorted(results["holdings"]), today)
+        for ticker_request in [r for r in requests if r["kind"] == "tickers"]:  # asked for by name
+            pool_notes += stock_pool.add_requested(pool, ticker_request, today)
         stock_pool.screen(pool, universe, today)
-        picks = stock_pool.pick(pool, universe, held, today)
+        focus = next((r for r in requests if r["kind"] in stock_pool.FOCUS_KINDS), None)
+        if focus:
+            pool_notes += stock_pool.expand_for(pool, universe, focus, today)
+        picks = stock_pool.pick(pool, universe, held, today, requests)
         stock_pool.save(pool)
         for symbol, slot in picks:
             evidence = evaluate_stock(symbol)
@@ -84,7 +90,8 @@ def run(include_candidates: bool = True) -> dict:
             results["fx_errors"][currency] = err
 
     # The market and world backdrop: indices, rates, oil..., and the day's market headlines.
-    results["markets"] = markets.gather()
+    results["requests"] = requests
+    results["markets"] = markets.gather(topics=[r["value"] for r in requests if r["kind"] == "news_topic"])
 
     results["run"] = {"started_at": started, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     return results

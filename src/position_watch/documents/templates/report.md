@@ -25,6 +25,10 @@ Every figure below comes from live FMP, Finnhub and yfinance calls made during t
 
 **Carried over:** {{ calls.context_note }}
 
+{% if requests %}
+**You asked for:** {{ requests | join(" · ") }}
+{% endif %}
+
 {% if notes %}
 {% for n in notes %}
 **Note:** {{ n }}

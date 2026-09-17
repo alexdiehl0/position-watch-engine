@@ -14,7 +14,7 @@ import math
 from datetime import datetime, timezone
 from urllib.parse import quote
 
-from position_watch import compliance, people, settings, suggestion_log
+from position_watch import client_requests, compliance, people, settings, suggestion_log
 from position_watch.analysis import markets, pnl
 from position_watch.analysis.stock import volatility_level
 
@@ -26,11 +26,11 @@ ETF_SECTOR = "ETFs (diversified funds)"
 NAV = [
     ("overview", "Overview"),
     ("allocation", "Allocation"),
+    ("suggestions", "Suggestions"),
+    ("watchlist", "Watchlist"),
+    ("etfs", "ETFs"),
     ("positions", "P&L"),
     ("sectors", "Sectors"),
-    ("suggestions", "Suggestions"),
-    ("etfs", "ETFs"),
-    ("watchlist", "Watchlist"),
     ("pool", "Stock pool"),
     ("news", "News"),
     ("excluded", "Not evaluated"),
@@ -349,6 +349,16 @@ def news(review, limit=10):
     return items[:limit]
 
 
+def requests_panel():
+    """What the client has asked for, and what can be asked (client_requests.py)."""
+    active = [
+        {"line": client_requests.describe(r), "kind": r.get("kind"), "text": r.get("text") or ""}
+        for r in people.active_requests()
+    ]
+    return {"active": active, "kinds": [{"name": k.name, "effect": k.effect, "example": k.examples[0]}
+                                        for k in client_requests.KINDS if k.name != "other"]}  # fmt: skip
+
+
 def ignored_messages():
     """Addresses whose messages couldn't be used, newest first (state/ignored_messages.json)."""
     known = _load_json(settings.state_dir() / "ignored_messages.json") or {}
@@ -415,6 +425,7 @@ def build(fragment=False) -> dict:
         "markets": markets.display(review, (suggestions or {}).get("market_briefing")),
         "excluded": excluded(review),
         "profile": profile(people.client()),
+        "requests": requests_panel(),
         "feedback": {
             "to": inbox,
             "subject": FEEDBACK_SUBJECT,

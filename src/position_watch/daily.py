@@ -7,7 +7,7 @@ commits the workspace. Steps:
 
   1. check secrets            6. write the report
   2. read yesterday's notes   7. build the dashboard
-  3. read feedback (Gmail)    8. publish the locked copy (if --pages-dir): push it, wait until it's live
+  3. read feedback, sort out requests   8. publish the locked copy (if --pages-dir): push it, wait until it's live
   4. gather evidence          9. email the summary -- only now, so its button opens today's page
   5. decide calls (Claude) and save them, the history, handoff, preferences
 
@@ -95,6 +95,16 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         except Exception as exc:  # feedback is optional; the review still runs
             notes.append(f"feedback not read today: {settings.redact(exc)}")
 
+        applied = []
+        if feedback:
+            step("sort out what he asked for")  # before the evidence, so today's run can honour it
+            changes, request_usage = reasoning.classify_requests(feedback, day, client=client)
+            if request_usage:
+                llm.log_usage(day, {**request_usage, "task": "requests"})
+            applied = people.apply_requests(changes, {m["message_id"]: m.get("from") for m in feedback}, day)
+            for line in applied:
+                notes.append(f"Applied what you asked for — {line}")
+
         step("gather evidence")
         results = review.run()
         review.save(results)
@@ -111,6 +121,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         if feedback:
             mail.mark_used(feedback, day)
         handoff.save_handoff(_handoff(day, calls, feedback))
+        people.consume_once_requests(day)  # a one-run request has now had its run
 
         step("write report")
         holdings, latest, _ = load_inputs()
@@ -128,6 +139,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
                 run=results["run"],
                 model=usage["model"],
                 notes=list(notes),
+                requests=results.get("requests") or [],
             )  # fmt: skip
         )
 
@@ -144,12 +156,13 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
             msg = documents.email(day, results, calls, totals, report_url=settings.report_url(day),
                                   dashboard_url=publish.email_link(), dashboard_published=published, notes=notes,
                                   names={r["symbol"]: r.get("name") for r in holdings},
-                                  positions={p["symbol"]: p for p in money["positions"]})  # fmt: skip
+                                  positions={p["symbol"]: p for p in money["positions"]},
+                                  requests=results.get("requests") or [])  # fmt: skip
             mail.send(people.recipients(), msg["subject"], msg["text"], html=msg["html"])
 
         return {"date": day, "model": usage["model"], "tokens": usage, "estimated_usd": usage["estimated_usd"],
-                "report": str(report_path), "dashboard_published": published,
-                "feedback_read": len(feedback), "preference_changes": prefs_changed, "notes": notes}  # fmt: skip
+                "report": str(report_path), "dashboard_published": published, "feedback_read": len(feedback),
+                "preference_changes": prefs_changed, "requests_applied": applied, "notes": notes}  # fmt: skip
 
     except Exception as exc:
         error = settings.redact(f"{type(exc).__name__}: {exc}")
