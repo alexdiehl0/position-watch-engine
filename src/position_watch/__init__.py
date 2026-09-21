@@ -2,4 +2,4 @@
 evidence, supports daily Buy/Add/Hold/Trim/Sell suggestions and builds a
 dashboard. It never places trades."""
 
-__version__ = "0.15.0"
+__version__ = "0.15.1"

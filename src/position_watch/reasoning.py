@@ -29,13 +29,18 @@ def _obj(properties: dict) -> dict:
 
 
 def _calls(actions: list, symbols: list | None = None) -> dict:
-    """One call per symbol. When the day's symbols are known they are pinned into
-    the schema -- an enum plus an exact length -- so the answer cannot come back
-    naming something that wasn't asked about, or listing one symbol twice."""
+    """One call per symbol. When the day's symbols are known, `symbol` is pinned
+    to an enum of exactly those, so the answer cannot name something that was
+    not asked about.
+
+    The count is not pinned with minItems/maxItems: structured output rejects
+    any minItems above 1 ("For 'array' type, 'minItems' values other than 0 or 1
+    are not supported"), so a schema carrying them fails the request outright.
+    A symbol listed twice is caught in `validate` instead, which keeps the first
+    call and reports the repeat."""
     symbol_schema = {"type": "string", "enum": sorted(symbols)} if symbols else {"type": "string"}
     return {
         "type": "array",
-        **({"minItems": len(symbols), "maxItems": len(symbols)} if symbols else {}),
         "items": _obj(
             {
                 "symbol": symbol_schema,
@@ -182,6 +187,21 @@ A request naming a date that has already passed is spent: return nothing for it.
 rather than lost. Never invent a kind or an effect."""
 
 
+def resolve_message_id(cited: str | None, known) -> str | None:
+    """The real message id a model meant, or None if it meant none of them.
+
+    A Message-ID is written `<abc@host>` and the angle brackets are part of it,
+    but a model quoting one back will sometimes drop them. Matched exactly the
+    stripped form fails, and what it costs is silent: the client's request is
+    filtered out and nothing anywhere says a message was ignored. So compare on
+    the bare id and hand back the real one.
+    """
+    if not cited:
+        return None
+    bare = cited.strip().strip("<>")
+    return next((k for k in known if k.strip().strip("<>") == bare), None)
+
+
 def classify_requests(feedback: list, date: str, client=None, mode: str = "direct") -> tuple[list, dict]:
     """Sorts today's messages into requests (see client_requests.py). A small
     direct call, made before the evidence is gathered, so a request asked for
@@ -198,10 +218,11 @@ def classify_requests(feedback: list, date: str, client=None, mode: str = "direc
     message, batched = llm.ask(request, client=client, mode=mode)
     answer = llm.json_answer(message)
     known = {m["message_id"] for m in feedback}
-    changes = [
-        c for c in answer.get("requests", [])
-        if c.get("message_id") in known and c.get("kind") in client_requests.BY_NAME
-    ]  # fmt: skip
+    changes = []
+    for c in answer.get("requests", []):
+        cited = resolve_message_id(c.get("message_id"), known)
+        if cited and c.get("kind") in client_requests.BY_NAME:
+            changes.append({**c, "message_id": cited})
     return changes, llm.usage(message, batched)
 
 
@@ -299,8 +320,10 @@ def validate(calls: dict, review: dict, feedback_ids: set) -> tuple[dict, list]:
                 "the first call for each was used."
             )
     for change in calls.get("preference_changes", []):
-        if change["message_id"] not in feedback_ids:
+        cited = resolve_message_id(change.get("message_id"), feedback_ids)
+        if not cited:
             raise ReasoningError(f"preference change cites unknown feedback message {change['message_id']!r}")
+        change["message_id"] = cited  # the id as the mailbox wrote it, brackets and all
     calls["market_briefing"] = _checked_briefing(calls.get("market_briefing") or [], review)
     return calls, notes
 

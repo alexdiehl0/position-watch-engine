@@ -67,9 +67,11 @@ def test_a_duplicate_hiding_a_missing_symbol_still_stops_the_run(review_data):
 
 def test_schema_pins_each_section_to_the_days_symbols(review_data):
     section = reasoning.schema(review_data)["properties"]["etfs"]
-    expected = sorted(review_data["etfs"])
-    assert section["items"]["properties"]["symbol"]["enum"] == expected
-    assert section["minItems"] == section["maxItems"] == len(expected)
+    assert section["items"]["properties"]["symbol"]["enum"] == sorted(review_data["etfs"])
+    # Not minItems/maxItems: structured output rejects any minItems above 1, so
+    # a schema carrying them fails the request outright (400). The count is
+    # checked in validate() instead.
+    assert "minItems" not in section and "maxItems" not in section
 
 
 def test_preference_change_must_cite_real_feedback(review_data):
@@ -109,3 +111,22 @@ def test_a_briefing_item_names_at_most_three_symbols(review_data):
     ]
     result, _, _ = reasoning.decide(review_data, None, FEEDBACK, "2026-01-02", client=FakeClaude(calls))
     assert len(result["market_briefing"][0]["affects"]) == 3
+
+
+def test_a_message_id_quoted_without_its_angle_brackets_still_matches():
+    # A Message-ID is <abc@host> and the brackets are part of it, but a model
+    # quoting one back sometimes drops them. Matched exactly, the client's
+    # request was filtered out and nothing said a message had been ignored.
+    known = {"<m1@example.com>"}
+    assert reasoning.resolve_message_id("m1@example.com", known) == "<m1@example.com>"
+    assert reasoning.resolve_message_id("<m1@example.com>", known) == "<m1@example.com>"
+    assert reasoning.resolve_message_id(" m1@example.com ", known) == "<m1@example.com>"
+    assert reasoning.resolve_message_id("someone-else@example.com", known) is None
+    assert reasoning.resolve_message_id(None, known) is None
+
+
+def test_a_preference_change_citing_a_bare_id_is_kept_and_renormalised(review_data):
+    calls = copy.deepcopy(CALLS)
+    calls["preference_changes"][0]["message_id"] = "m1@example.com"  # brackets dropped
+    result, _, _ = reasoning.decide(review_data, None, FEEDBACK, "2026-01-02", client=FakeClaude(calls))
+    assert result["preference_changes"][0]["message_id"] == "<m1@example.com>"
