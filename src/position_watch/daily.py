@@ -120,8 +120,9 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         review.save(results)
 
         step("decide calls")
-        calls, usage = reasoning.decide(results, yesterday, feedback, day, client=client, mode=mode)
+        calls, usage, call_notes = reasoning.decide(results, yesterday, feedback, day, client=client, mode=mode)
         llm.log_usage(day, {**usage, "task": "daily"})
+        notes += call_notes
 
         step("save calls")
         s = _suggestions(day, calls)

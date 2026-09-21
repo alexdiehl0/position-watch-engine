@@ -17,15 +17,10 @@ snapshot. A live price in a different currency from the position is not used.
 
 from datetime import datetime, timezone
 
-from position_watch.analysis import volatility
+from position_watch.analysis import numbers, volatility
 from position_watch.sources import yahoo
 
-
-def _f(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+_f = numbers.to_float
 
 
 def _pct(a, b):
@@ -58,7 +53,9 @@ def evaluate_etf(symbol: str, row: dict) -> dict:
     low = _f(info.get("fiftyTwoWeekLow"))
     ma200 = _f(info.get("twoHundredDayAverage"))
     expense = _f(info.get("netExpenseRatio"))
-    div_yield = _f(info.get("dividendYield"))
+    div_yield, div_yield_gap = numbers.dividend_yield_pct(info)
+    if div_yield_gap:
+        gaps.append(div_yield_gap)
     beta = _f(info.get("beta3Year") or info.get("beta"))
 
     for name, value in (

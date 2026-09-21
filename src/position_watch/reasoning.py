@@ -28,12 +28,17 @@ def _obj(properties: dict) -> dict:
     return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
 
 
-def _calls(actions: list) -> dict:
+def _calls(actions: list, symbols: list | None = None) -> dict:
+    """One call per symbol. When the day's symbols are known they are pinned into
+    the schema -- an enum plus an exact length -- so the answer cannot come back
+    naming something that wasn't asked about, or listing one symbol twice."""
+    symbol_schema = {"type": "string", "enum": sorted(symbols)} if symbols else {"type": "string"}
     return {
         "type": "array",
+        **({"minItems": len(symbols), "maxItems": len(symbols)} if symbols else {}),
         "items": _obj(
             {
-                "symbol": {"type": "string"},
+                "symbol": symbol_schema,
                 "action": {"type": "string", "enum": actions},
                 "one_line": {"type": "string", "description": "One sentence: the call and its main reason."},
                 "reasoning": {
@@ -46,56 +51,65 @@ def _calls(actions: list) -> dict:
     }
 
 
-SCHEMA = _obj(
-    {
-        "context_note": {
-            "type": "string",
-            "description": "One line on what was carried over from yesterday's notes or feedback, or 'none'.",
-        },
-        "holdings": _calls(STOCK_ACTIONS),
-        "etfs": _calls(ETF_ACTIONS),
-        "candidates": _calls(STOCK_ACTIONS),
-        "market_briefing": {
-            "type": "array",
-            "description": "The 3-5 market or world developments most likely to move these holdings; [] if none.",
-            "items": _obj(
-                {
-                    "development": {
-                        "type": "string",
-                        "description": "What happened, in one short sentence (max 20 words).",
-                    },
-                    "impact": {"type": "string", "description": "How it bears on the symbols named (max 30 words)."},
-                    "affects": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "1-6 symbols, holdings first.",
-                    },
-                    "headline_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "The 1-3 best headlines.",
-                    },
-                }
-            ),
-        },
-        "notes_for_tomorrow": {"type": "array", "items": {"type": "string"}},
-        "feedback_applied": {
-            "type": "array",
-            "items": _obj({"message_id": {"type": "string"}, "how": {"type": "string"}}),
-        },
-        "preference_changes": {
-            "type": "array",
-            "items": _obj(
-                {
-                    "message_id": {"type": "string"},
-                    "field": {"type": "string", "enum": PREF_FIELDS},
-                    "operation": {"type": "string", "enum": ["set", "add", "remove"]},
-                    "value": {"type": "string"},
-                }
-            ),
-        },
-    }
-)
+def schema(review: dict | None = None) -> dict:
+    """The answer's shape. Given the day's evidence, each section is pinned to
+    exactly the symbols it asked about (see `_calls`); without it, the general
+    shape, for tests and documentation."""
+    section = (review or {}).get
+    return _obj(
+        {
+            "context_note": {
+                "type": "string",
+                "description": "One line on what was carried over from yesterday's notes or feedback, or 'none'.",
+            },
+            "holdings": _calls(STOCK_ACTIONS, review and list(section("holdings", {}))),
+            "etfs": _calls(ETF_ACTIONS, review and list(section("etfs", {}))),
+            "candidates": _calls(STOCK_ACTIONS, review and list(section("candidates", {}))),
+            "market_briefing": {
+                "type": "array",
+                "description": "The 3-5 market or world developments most likely to move these holdings; [] if none.",
+                "items": _obj(
+                    {
+                        "development": {
+                            "type": "string",
+                            "description": "What happened, in one short sentence (max 20 words).",
+                        },
+                        "impact": {
+                            "type": "string",
+                            "description": "How it bears on the symbols named (max 30 words).",
+                        },
+                        "affects": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "1-6 symbols, holdings first.",
+                        },
+                        "headline_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "The 1-3 best headlines.",
+                        },
+                    }
+                ),
+            },
+            "notes_for_tomorrow": {"type": "array", "items": {"type": "string"}},
+            "feedback_applied": {
+                "type": "array",
+                "items": _obj({"message_id": {"type": "string"}, "how": {"type": "string"}}),
+            },
+            "preference_changes": {
+                "type": "array",
+                "items": _obj(
+                    {
+                        "message_id": {"type": "string"},
+                        "field": {"type": "string", "enum": PREF_FIELDS},
+                        "operation": {"type": "string", "enum": ["set", "add", "remove"]},
+                        "value": {"type": "string"},
+                    }
+                ),
+            },
+        }
+    )
+
 
 SYSTEM = """You are the analyst for Position Watch, a private portfolio research assistant for one client. \
 Each morning you receive the day's evidence, gathered by code from live market data, and decide one call per \
@@ -249,23 +263,46 @@ def build_request(review: dict, preferences: dict, handoff: dict | None, feedbac
         f"<evidence>\n{json.dumps(_digest(review), **compact)}\n</evidence>\n\n"
         "Decide today's calls."
     )
-    return llm.base_request(SYSTEM, user, SCHEMA, MAX_TOKENS)
+    return llm.base_request(SYSTEM, user, schema(review), MAX_TOKENS)
 
 
 ReasoningError = llm.ClaudeError
 
 
-def validate(calls: dict, review: dict, feedback_ids: set) -> dict:
+def validate(calls: dict, review: dict, feedback_ids: set) -> tuple[dict, list]:
+    """Checks the answer covers exactly the symbols asked about, and returns it
+    with any notes worth passing on to the report.
+
+    A symbol listed twice is a slip in one array entry, not a wrong judgement:
+    the first call for it is kept, the repeat dropped, and the fact reported
+    rather than swallowed. A symbol genuinely missing still stops the run --
+    there is no call to fall back on, and inventing one is not an option.
+    """
+    notes = []
     for section in ("holdings", "etfs", "candidates"):
         expected = set(review.get(section, {}))
-        got = [c["symbol"] for c in calls.get(section, [])]
-        if set(got) != expected or len(got) != len(expected):
+        kept, seen, repeated = [], set(), []
+        for call in calls.get(section, []):
+            symbol = call["symbol"]
+            if symbol in seen:
+                repeated.append(symbol)
+                continue
+            seen.add(symbol)
+            kept.append(call)
+        if seen != expected:
+            got = [c["symbol"] for c in calls.get(section, [])]
             raise ReasoningError(f"{section}: expected calls for {sorted(expected)}, got {sorted(got)}")
+        if repeated:
+            calls[section] = kept
+            notes.append(
+                f"Claude returned {', '.join(sorted(set(repeated)))} more than once in {section}; "
+                "the first call for each was used."
+            )
     for change in calls.get("preference_changes", []):
         if change["message_id"] not in feedback_ids:
             raise ReasoningError(f"preference change cites unknown feedback message {change['message_id']!r}")
     calls["market_briefing"] = _checked_briefing(calls.get("market_briefing") or [], review)
-    return calls
+    return calls, notes
 
 
 def _checked_briefing(items: list, review: dict) -> list:
@@ -281,12 +318,16 @@ def _checked_briefing(items: list, review: dict) -> list:
     return kept[:5]  # short enough to read on a phone
 
 
-def decide(review: dict, handoff: dict | None, feedback: list, date: str, client=None, mode=None) -> tuple[dict, dict]:
-    """Returns (calls, usage). `client` and `mode` are injectable for tests."""
+def decide(
+    review: dict, handoff: dict | None, feedback: list, date: str, client=None, mode=None
+) -> tuple[dict, dict, list]:
+    """Returns (calls, usage, notes). `client` and `mode` are injectable for tests.
+    `notes` carries anything the answer needed correcting for, to show in the report."""
     request = build_request(review, people.client().get("preferences"), handoff, feedback, date)
     message, batched = llm.ask(request, client=client, mode=mode)
     calls = llm.json_answer(message)
-    return validate(calls, review, {m["message_id"] for m in feedback}), llm.usage(message, batched)
+    calls, notes = validate(calls, review, {m["message_id"] for m in feedback})
+    return calls, llm.usage(message, batched), notes
 
 
 def apply_preference_changes(calls: dict, feedback: list) -> list:

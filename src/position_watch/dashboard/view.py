@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from position_watch import client_requests, compliance, people, settings, suggestion_log
-from position_watch.analysis import markets, pnl
+from position_watch.analysis import markets, numbers, pnl
 from position_watch.analysis.stock import volatility_level
 
 ACTION_STATUS = {"buy": "good", "add": "good", "top_up": "good", "hold": "warn", "trim": "crit", "sell": "crit"}
@@ -55,11 +55,7 @@ def _load_json(path):
         return json.load(f)
 
 
-def _float(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
+_float = numbers.to_float
 
 
 def load_inputs():
@@ -118,8 +114,14 @@ def allocation(holdings, names, max_slices=8):
     """Ring segments in stable holdings.csv order (so touching segments are
     validated adjacent palette slots and a weight change never repaints a
     position); only the smallest weights past the 8-hue ceiling fold into
-    Other. The legend is the table view, largest first."""
-    rows = [(r["symbol"], _float(r.get("allocation_pct"))) for r in holdings]
+    Other. The legend is the table view, largest first.
+
+    A holding whose allocation_pct won't parse is left out of the ring rather
+    than drawn as a zero slice, and counted in `unweighted` so the page can say
+    so: a silent 0% would read as a real weight."""
+    weights = [(r["symbol"], _float(r.get("allocation_pct"))) for r in holdings]
+    rows = [(s, p) for s, p in weights if p is not None]
+    unweighted = [s for s, p in weights if p is None]
     n_fold = max(0, len(rows) - max_slices)
     folded = sorted(rows, key=lambda x: x[1])[:n_fold] if n_fold else []
     folded_syms = {s for s, _ in folded}
@@ -151,9 +153,11 @@ def allocation(holdings, names, max_slices=8):
     return {
         "slices": slices,
         "legend": legend,
-        "count": len(holdings),
+        "count": len(rows),
+        "unweighted": unweighted,
         "aria": "Portfolio allocation: " + ", ".join(f"{s['key']} {s['pct']:.1f}%" for s in slices),
-        "other_note": f"; the {len(folded)} smallest are grouped as Other" if len(folded) > 1 else "",
+        "other_note": (f"; the {len(folded)} smallest are grouped as Other" if len(folded) > 1 else "")
+        + (f"; no allocation figure for {', '.join(unweighted)}" if unweighted else ""),
     }
 
 
@@ -252,7 +256,7 @@ def holdings_rows(review, suggestions, holdings):
             "company": company(sym, d),
             "action": action(sugg.get(sym, {}).get("action")),
             "one_line": sugg.get(sym, {}).get("one_line") or "No synthesized suggestion for this run.",
-            "weight": weight.get(sym, 0),
+            "weight": weight.get(sym),  # None shows as a dash, never as 0%
             "risk": risk(d.get("volatility_3m_pct"), d.get("beta")),
             "gaps": len(d.get("data_gaps") or []),
         }

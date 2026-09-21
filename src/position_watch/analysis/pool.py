@@ -25,7 +25,7 @@ import statistics
 from datetime import date, timedelta
 
 from position_watch import client_requests, settings, suggestion_log
-from position_watch.analysis import volatility
+from position_watch.analysis import numbers, volatility
 from position_watch.sources import finnhub, fmp, fx, yahoo
 
 
@@ -223,11 +223,7 @@ def screen_subset(pool, universe, today, symbols):
         pool["stocks"][s] = entry
 
 
-def _f(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+_f = numbers.to_float
 
 
 def _screen_non_us(symbol, entry, universe, today, closes, rates):
@@ -287,25 +283,21 @@ def _screen_yahoo(symbol: str, rates: dict) -> tuple[dict, list]:
         cap = cap * rates[currency] if rates.get(currency) else None
     if cap is None:
         gaps.append("market cap: not returned by Yahoo")
+    yield_pct, yield_gap = numbers.dividend_yield_pct(info)
+    if yield_gap:
+        gaps.append(yield_gap)
     return {
         "pe": _f(info.get("trailingPE")),
         "forward_pe": _f(info.get("forwardPE")),
         "five_yr_median_pe": None,
-        "dividend_yield_pct": _to_pct(_f(info.get("dividendYield"))),
-        "payout_ratio_pct": (_f(info.get("payoutRatio")) or 0) * 100 if info.get("payoutRatio") is not None else None,
+        "dividend_yield_pct": yield_pct,
+        "payout_ratio_pct": numbers.to_pct(info.get("payoutRatio"), already_pct=False),
         "market_cap_usd_m": cap / 1e6 if cap else None,
         "sector": info.get("sector"),
         "currency": currency,
         "volatility_3m_pct": None,
         "beta": _f(info.get("beta3Year") or info.get("beta")),
     }, gaps
-
-
-def _to_pct(value):
-    """Yahoo reports a yield either as 4.5 or as 0.045, depending on the field's day."""
-    if value is None:
-        return None
-    return round(value * 100, 3) if value < 1 else round(value, 3)
 
 
 def screen(pool, universe, today):
