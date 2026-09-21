@@ -40,16 +40,28 @@ class ClaudeError(RuntimeError):
 
 
 def base_request(system: str, user: str, schema: dict, max_tokens: int = 64000, model: str | None = None) -> dict:
-    return {
-        "model": model or MODEL,
+    """One request, shaped for the model it is going to.
+
+    Adaptive thinking and a raised effort are what the daily judgement needs and
+    what Opus offers; the small model accepts neither ("adaptive thinking is not
+    supported on this model") and would refuse the request outright. So they go
+    on only where they apply, and the classification and transcription calls --
+    which want neither -- send the plain form.
+    """
+    chosen = model or MODEL
+    request = {
+        "model": chosen,
         "max_tokens": max_tokens,
         "betas": [FALLBACK_BETA],
         "fallbacks": "default",
-        "thinking": {"type": "adaptive"},
-        "output_config": {"effort": "high", "format": {"type": "json_schema", "schema": schema}},
+        "output_config": {"format": {"type": "json_schema", "schema": schema}},
         "system": system,
         "messages": [{"role": "user", "content": user}],
     }
+    if chosen != SMALL_MODEL:
+        request["thinking"] = {"type": "adaptive"}
+        request["output_config"]["effort"] = "high"
+    return request
 
 
 def request_with_files(

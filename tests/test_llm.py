@@ -47,3 +47,16 @@ def test_a_small_model_call_is_priced_as_one():
     message, batched = llm.ask(llm.base_request("r", "e", {}, model=llm.SMALL_MODEL), client=fake)
     message.model = llm.SMALL_MODEL
     assert llm.usage(message, batched)["estimated_usd"] == 0.03  # (20k x $1 + 8k x $5) / 1M, halved
+
+
+def test_the_small_model_gets_no_adaptive_thinking_or_effort():
+    # Haiku refuses both outright ("adaptive thinking is not supported on this
+    # model"), so a request carrying them fails with a 400 before it starts.
+    small = llm.base_request("rules", "evidence", {}, model=llm.SMALL_MODEL)
+    assert "thinking" not in small
+    assert "effort" not in small["output_config"]
+    assert small["output_config"]["format"]["type"] == "json_schema"
+
+    big = llm.base_request("rules", "evidence", {})
+    assert big["thinking"] == {"type": "adaptive"}
+    assert big["output_config"]["effort"] == "high"
