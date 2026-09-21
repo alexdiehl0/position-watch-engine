@@ -18,7 +18,7 @@ evidence into a portfolio-wide suggestion happens one level up.
 
 from datetime import date, datetime, timezone
 
-from position_watch.analysis import volatility
+from position_watch.analysis import numbers, volatility
 from position_watch.analysis.news import company_news
 from position_watch.sources import finnhub, fmp, yahoo
 
@@ -285,10 +285,7 @@ def _finnhub_fields(symbol: str) -> dict:
     return out
 
 
-def _to_pct(value, already_pct: bool):
-    if value is None:
-        return None
-    return round(value if already_pct else value * 100, 2)
+_to_pct = numbers.to_pct
 
 
 def _short_description(text, max_chars: int = 280):
@@ -333,7 +330,7 @@ def _yfinance_fields(symbol: str) -> dict:
         out["pe"] = info.get("trailingPE")
         out["forward_pe"] = info.get("forwardPE")
         out["peg"] = info.get("pegRatio")
-        out["dividend_yield"] = info.get("dividendYield")  # already percent, e.g. 3.1
+        out["dividend_yield"], _ = numbers.dividend_yield_pct(info)
         out["payout_ratio"] = _to_pct(info.get("payoutRatio"), already_pct=False)
         out["sector"] = info.get("sector")
         out["company_name"] = info.get("longName") or info.get("shortName")

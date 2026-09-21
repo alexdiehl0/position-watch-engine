@@ -12,7 +12,7 @@
       <tr><td class="co-cell" data-v="{{ r.company.symbol }}">{{ company(r.company) }}</td>
         <td data-v="{{ r.action.rank }}">{{ pill(r.action) }}</td>
         <td class="reason">{{ r.one_line }}</td>
-        <td class="num right" data-v="{{ '%.4f' | format(r.weight) }}">{{ '%.1f' | format(r.weight) }}%</td>
+        <td class="num right" data-v="{{ '%.4f' | format(r.weight if r.weight is not none else -1) }}">{% if r.weight is not none %}{{ '%.1f' | format(r.weight) }}%{% else %}<span class="muted" title="No allocation figure in holdings.csv">&mdash;</span>{% endif %}</td>
         {{ vol_cell(r.risk) }}
         <td class="num right muted" data-v="{{ r.gaps }}">{{ r.gaps }}</td></tr>
     {%- endfor %}

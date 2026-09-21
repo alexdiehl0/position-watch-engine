@@ -85,8 +85,14 @@ def test_a_european_stock_with_no_data_is_dropped(monkeypatch):
     assert _screen_european(monkeypatch, None)["filtered_out"] == "no data from Yahoo"
 
 
-def test_a_yield_reads_the_same_whichever_way_yahoo_sends_it():
-    assert pool._to_pct(4.5) == 4.5 and pool._to_pct(0.045) == 4.5 and pool._to_pct(None) is None
+def test_a_sub_one_percent_yield_does_not_become_a_watchlist_pick(monkeypatch):
+    # Infineon, 19-21 Sept 2026: Yahoo sent 0.63 for a 0.63% yield, the screen
+    # read it as a fraction and recorded 63%, and full marks on the client's
+    # high-dividend preference took the stock to 11th of 412 in the pool.
+    info = {**EURO_INFO, "dividendYield": 0.63, "trailingAnnualDividendRate": 0.35, "currentPrice": 55.5}
+    screen = _screen_european(monkeypatch, info)
+    assert round(screen["dividend_yield_pct"], 2) == 0.63
+    assert "yield 0.6%" in screen["why"]
 
 
 def test_forward_pe_stands_in_for_a_missing_history():
