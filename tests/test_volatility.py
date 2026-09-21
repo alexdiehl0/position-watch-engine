@@ -1,6 +1,7 @@
 import math
 
 from position_watch.analysis import etf, pool, stock, volatility
+from position_watch.sources import finnhub, yahoo
 
 
 def _zigzag(days, move=0.01, start=100.0):
@@ -48,9 +49,9 @@ def test_etfs_get_volatility_or_an_explicit_gap(monkeypatch):
 def test_pool_screen_computes_volatility_in_one_request(monkeypatch):
     metric = {"metric": {"peTTM": 12, "currentDividendYieldTTM": 3, "marketCapitalization": 50_000,
                          "3MonthADReturnStd": 99.0}}  # fmt: skip
-    monkeypatch.setattr(pool.finnhub, "get_ratios", lambda s: (metric, None))
+    monkeypatch.setattr(finnhub, "get_ratios", lambda s: (metric, None))
     requests = []
-    monkeypatch.setattr(pool.yahoo, "get_closes_many",
+    monkeypatch.setattr(yahoo, "get_closes_many",
                         lambda symbols: requests.append(symbols) or ({"AAA": _zigzag(62)}, None))  # fmt: skip
     p = {"stocks": {"AAA": {}, "BBB": {}}}
     pool.screen(p, {"min_market_cap_usd_m": 10_000}, __import__("datetime").date(2026, 1, 2))

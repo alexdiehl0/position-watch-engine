@@ -73,7 +73,7 @@ flowchart TB
     REV["review.py"]
     REV --> STK["analysis/stock.py<br/>valuation · dividends<br/>volatility · news"]
     REV --> ETF["analysis/etf.py<br/>top-up evidence"]
-    REV --> POOL["analysis/pool.py<br/>screen ~130 stocks<br/>pick 6 + 2"]
+    REV --> POOL["analysis/pool/<br/>screen ~420 stocks once a day<br/>pick 6 + 2"]
     REV --> FX["sources/fx.py"]
     REV --> MKTN["analysis/markets.py · news.py<br/>snapshot · world headlines"]
   end

@@ -8,6 +8,7 @@ import pytest
 from position_watch import client_requests, people, reasoning
 from position_watch.analysis import news, pool
 from position_watch.documents import render as documents
+from position_watch.sources import finnhub
 from tests.fakes import FakeClaude
 
 TODAY = date(2026, 1, 2)
@@ -148,7 +149,7 @@ def test_tickers_asked_for_join_the_pool_and_the_watchlist():
 
 def test_a_thin_sector_pulls_in_peers(monkeypatch):
     p = {"stocks": {"XOM": {"industry": "Oil & Gas", "screen": {"passed": True, "score": 0.9}}}}
-    monkeypatch.setattr(pool.finnhub, "get_peers", lambda s, grouping: (["XOM", "CVX", "COP"], None))
+    monkeypatch.setattr(finnhub, "get_peers", lambda s, grouping: (["XOM", "CVX", "COP"], None))
     monkeypatch.setattr(pool, "screen_subset", lambda *a: None)
     notes = pool.expand_for(p, UNIVERSE, _request("sector", "energy"), TODAY)
     assert notes == ["added 2 stocks to answer the request for energy"]

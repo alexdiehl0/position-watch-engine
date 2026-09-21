@@ -1,29 +1,31 @@
 from datetime import date
 
 from position_watch.analysis import pool
+from position_watch.analysis.pool import screening
+from position_watch.sources import finnhub, fmp, fx, yahoo
 
 
 def test_score_rewards_discount_and_yield():
-    score, why = pool._score(pe=10, median_pe=20, yld=4, payout=50)
+    score, why = screening._score(pe=10, median_pe=20, yld=4, payout=50)
     assert score == 1.5  # 50% discount -> +1, 4% yield -> +0.5
     assert "50% below" in why
 
 
 def test_no_value_credit_above_pe_40():
-    score, why = pool._score(pe=60, median_pe=200, yld=None, payout=None)
+    score, why = screening._score(pe=60, median_pe=200, yld=None, payout=None)
     assert score == 0
     assert "but over 40" in why
 
 
 def test_stretched_payout_is_penalised():
-    covered, _ = pool._score(pe=15, median_pe=15, yld=6, payout=60)
-    stretched, why = pool._score(pe=15, median_pe=15, yld=6, payout=120)
+    covered, _ = screening._score(pe=15, median_pe=15, yld=6, payout=60)
+    stretched, why = screening._score(pe=15, median_pe=15, yld=6, payout=120)
     assert stretched == covered - 0.5
     assert "over 100%" in why
 
 
 def test_loss_makers_score_negative():
-    score, why = pool._score(pe=-5, median_pe=12, yld=None, payout=None)
+    score, why = screening._score(pe=-5, median_pe=12, yld=None, payout=None)
     assert score < 0
     assert "loss-making" in why
 
@@ -59,9 +61,9 @@ EURO_INFO = {"trailingPE": 11.5, "forwardPE": 9.1, "dividendYield": 4.5, "payout
 
 
 def _screen_european(monkeypatch, info, cap_floor=2000):
-    monkeypatch.setattr(pool.yahoo, "get_info", lambda s: (info, None) if info else (None, "yfinance returned nothing"))
-    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
-    monkeypatch.setattr(pool.fx, "get_rate", lambda base, quote="USD": ({"rate": 1.1}, None))
+    monkeypatch.setattr(yahoo, "get_info", lambda s: (info, None) if info else (None, "yfinance returned nothing"))
+    monkeypatch.setattr(yahoo, "get_closes_many", lambda symbols: ({}, None))
+    monkeypatch.setattr(fx, "get_rate", lambda base, quote="USD": ({"rate": 1.1}, None))
     stocks = {"stocks": {"TTE.PA": {"market": "europe", "name": "TotalEnergies SE", "industry": "Oil & Gas"}}}
     pool.screen(stocks, {"min_market_cap_usd_m": cap_floor}, date(2026, 1, 2))
     return stocks["stocks"]["TTE.PA"]["screen"]
@@ -96,17 +98,15 @@ def test_a_sub_one_percent_yield_does_not_become_a_watchlist_pick(monkeypatch):
 
 
 def test_forward_pe_stands_in_for_a_missing_history():
-    cheaper, why = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=14)
-    flat, _ = pool._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=20)
+    cheaper, why = screening._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=14)
+    flat, _ = screening._score(pe=20, median_pe=None, yld=3, payout=40, forward_pe=20)
     assert cheaper > flat and "vs forward 14.0, no 5-yr history" in why
 
 
 def test_an_index_can_seed_the_pool_when_the_plan_allows_it(monkeypatch, workspace):
-    monkeypatch.setattr(
-        pool.fmp, "get_index_constituents", lambda index: ([{"symbol": "AAA"}, {"symbol": "BBB"}], None)
-    )
-    monkeypatch.setattr(pool.finnhub, "get_peers", lambda symbol, grouping: ([], None))
-    monkeypatch.setattr(pool.finnhub, "get_company_profile", lambda symbol: ({"name": symbol}, None))
+    monkeypatch.setattr(fmp, "get_index_constituents", lambda index: ([{"symbol": "AAA"}, {"symbol": "BBB"}], None))
+    monkeypatch.setattr(finnhub, "get_peers", lambda symbol, grouping: ([], None))
+    monkeypatch.setattr(finnhub, "get_company_profile", lambda symbol: ({"name": symbol}, None))
     universe = {"seeds": {}, "pool_cap": 50, "index_seeds": ["sp500"], "refresh_days": 7}
     p = {"stocks": {}}
     pool.refresh(p, universe, [], date(2026, 1, 2))
@@ -114,8 +114,8 @@ def test_an_index_can_seed_the_pool_when_the_plan_allows_it(monkeypatch, workspa
 
 
 def test_a_refused_index_is_a_note_not_a_failure(monkeypatch, workspace):
-    monkeypatch.setattr(pool.fmp, "get_index_constituents", lambda index: (None, "HTTP 402: needs a paid plan"))
-    monkeypatch.setattr(pool.finnhub, "get_peers", lambda symbol, grouping: ([], None))
+    monkeypatch.setattr(fmp, "get_index_constituents", lambda index: (None, "HTTP 402: needs a paid plan"))
+    monkeypatch.setattr(finnhub, "get_peers", lambda symbol, grouping: ([], None))
     universe = {"seeds": {}, "pool_cap": 50, "index_seeds": ["sp500"], "refresh_days": 7}
     notes = pool.refresh({"stocks": {}}, universe, [], date(2026, 1, 2))
     assert any("sp500 constituents: HTTP 402" in n for n in notes)
@@ -125,8 +125,8 @@ def test_a_stock_already_screened_today_is_not_screened_again(monkeypatch):
     # Three failed runs on 19 Sept 2026 each re-screened the whole 420-stock
     # pool from scratch and produced no review; a retry should be nearly free.
     calls = []
-    monkeypatch.setattr(pool.finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
-    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
+    monkeypatch.setattr(finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
+    monkeypatch.setattr(yahoo, "get_closes_many", lambda symbols: ({}, None))
     today = date(2026, 1, 2)
     stocks = {"stocks": {"AAA": {}, "BBB": {}}}
 
@@ -145,8 +145,8 @@ def test_a_stock_already_screened_today_is_not_screened_again(monkeypatch):
 
 def test_a_stock_new_to_the_pool_is_still_screened_today(monkeypatch):
     calls = []
-    monkeypatch.setattr(pool.finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
-    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
+    monkeypatch.setattr(finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
+    monkeypatch.setattr(yahoo, "get_closes_many", lambda symbols: ({}, None))
     today = date(2026, 1, 2)
     stocks = {"stocks": {"AAA": {}}}
     pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today)
