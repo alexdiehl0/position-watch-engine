@@ -33,3 +33,17 @@ def test_standard_mode_skips_the_batch():
     fake = FakeClaude()
     _, batched = llm.ask(_request(), client=fake, mode="standard")
     assert not batched and not fake.batch_requests
+
+
+def test_the_judgement_is_opus_and_the_side_jobs_are_not():
+    assert llm.base_request("rules", "evidence", {})["model"] == "claude-opus-5"
+    small = llm.base_request("rules", "evidence", {}, model=llm.SMALL_MODEL)
+    assert small["model"] == llm.SMALL_MODEL
+    assert llm.PRICES[llm.SMALL_MODEL] < llm.PRICES[llm.MODEL]
+
+
+def test_a_small_model_call_is_priced_as_one():
+    fake = FakeClaude()
+    message, batched = llm.ask(llm.base_request("r", "e", {}, model=llm.SMALL_MODEL), client=fake)
+    message.model = llm.SMALL_MODEL
+    assert llm.usage(message, batched)["estimated_usd"] == 0.03  # (20k x $1 + 8k x $5) / 1M, halved

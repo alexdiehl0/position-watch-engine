@@ -128,7 +128,7 @@ def from_picture(uploads: list, client=None, mode: str = "direct") -> tuple[list
     files = [(u["content_type"], base64.b64encode(u["path"].read_bytes()).decode()) for u in uploads]
     user = ("Here " + ("is a file" if len(files) == 1 else f"are {len(files)} files") +
             " showing the client's brokerage positions. Transcribe every position you can read.")  # fmt: skip
-    request = llm.request_with_files(SYSTEM, user, SCHEMA, files)
+    request = llm.request_with_files(SYSTEM, user, SCHEMA, files, model=llm.SMALL_MODEL)
     message, batched = llm.ask(request, client=client, mode=mode)
     answer = llm.json_answer(message)
     positions = []

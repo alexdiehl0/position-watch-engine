@@ -20,8 +20,18 @@ import anthropic
 from position_watch import settings
 
 MODEL = "claude-opus-5"
+# The judgement -- what to do with each position -- is Opus's and stays Opus's.
+# Sorting an email into a request kind, and reading a holdings table off a
+# screenshot, are not judgement: they are classification and transcription
+# against a fixed schema, where the small model is as good and a great deal
+# cheaper. Both are direct (unbatched) calls made while the run waits.
+SMALL_MODEL = "claude-haiku-4-5-20251001"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
-PRICES = {"claude-opus-5": (5.0, 25.0), "claude-opus-4-8": (5.0, 25.0)}  # $ per million tokens in / out
+PRICES = {  # $ per million tokens in / out
+    "claude-opus-5": (5.0, 25.0),
+    "claude-opus-4-8": (5.0, 25.0),
+    "claude-haiku-4-5-20251001": (1.0, 5.0),
+}
 BATCH_DISCOUNT = 0.5
 
 
@@ -29,9 +39,9 @@ class ClaudeError(RuntimeError):
     """The answer can't be used; the caller stops and reports why."""
 
 
-def base_request(system: str, user: str, schema: dict, max_tokens: int = 64000) -> dict:
+def base_request(system: str, user: str, schema: dict, max_tokens: int = 64000, model: str | None = None) -> dict:
     return {
-        "model": MODEL,
+        "model": model or MODEL,
         "max_tokens": max_tokens,
         "betas": [FALLBACK_BETA],
         "fallbacks": "default",
@@ -42,7 +52,9 @@ def base_request(system: str, user: str, schema: dict, max_tokens: int = 64000) 
     }
 
 
-def request_with_files(system: str, user: str, schema: dict, files: list, max_tokens: int = 16000) -> dict:
+def request_with_files(
+    system: str, user: str, schema: dict, files: list, max_tokens: int = 16000, model: str | None = None
+) -> dict:
     """Like base_request(), with images or PDFs attached. `files`: [(media_type, base64 data)]."""
     blocks = [
         {
@@ -51,7 +63,7 @@ def request_with_files(system: str, user: str, schema: dict, files: list, max_to
         }  # fmt: skip
         for media, data in files
     ]
-    request = base_request(system, user, schema, max_tokens)
+    request = base_request(system, user, schema, max_tokens, model)
     request["messages"] = [{"role": "user", "content": [*blocks, {"type": "text", "text": user}]}]
     return request
 

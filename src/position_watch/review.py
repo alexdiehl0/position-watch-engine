@@ -20,7 +20,7 @@ from position_watch.analysis import markets
 from position_watch.analysis import pool as stock_pool
 from position_watch.analysis.etf import evaluate_etf
 from position_watch.analysis.stock import evaluate_stock
-from position_watch.sources import finnhub, fmp, fx
+from position_watch.sources import finnhub, fmp, fx, yahoo
 
 
 def load_open_holdings() -> list:
@@ -33,6 +33,7 @@ def run(include_candidates: bool = True) -> dict:
     requests = people.active_requests()  # what the client has asked for (client_requests.py)
     finnhub.reset_run_state()
     fmp.reset_run_state()
+    yahoo.reset_run_state()
     holdings = load_open_holdings()
     results = {"holdings": {}, "etfs": {}, "candidates": {}, "excluded": []}
 

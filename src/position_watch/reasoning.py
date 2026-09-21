@@ -81,7 +81,7 @@ def schema(review: dict | None = None) -> dict:
                         "affects": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "1-6 symbols, holdings first.",
+                            "description": "1-3 symbols, holdings first: only the ones it materially moves.",
                         },
                         "headline_ids": {
                             "type": "array",
@@ -133,7 +133,7 @@ last day and a half of market and geopolitical headlines, each with an id (M1, M
 the 3-5 developments most likely to move this client's holdings, ETFs or watchlist -- central banks and rates, \
 oil and energy, wars and sanctions, trade and tariffs, regulation, China, the dollar. For each, cite the headline \
 ids (the 1-3 best), list only the symbols it materially affects (as given; the client's holdings and ETFs \
-first, at most 6) and say how in one sentence. Keep each item short: the client reads it on a phone. \
+first, at most 3) and say how in one sentence. Keep each item short: the client reads it on a phone. \
 Use only these headlines and figures; \
 never add events or numbers from memory. When a development changes a call, say so in that symbol's reasoning \
 and cite the headline id, e.g. [M4]. If nothing is material, return an empty list.
@@ -194,7 +194,7 @@ def classify_requests(feedback: list, date: str, client=None, mode: str = "direc
     )
     system = REQUEST_SYSTEM.format(kinds=client_requests.prompt_section())
     request = llm.base_request(system, f"Today is {date}.\n\n{messages}\n\nWhat is he asking for?",
-                               REQUEST_SCHEMA, max_tokens=8000)  # fmt: skip
+                               REQUEST_SCHEMA, max_tokens=8000, model=llm.SMALL_MODEL)  # fmt: skip
     message, batched = llm.ask(request, client=client, mode=mode)
     answer = llm.json_answer(message)
     known = {m["message_id"] for m in feedback}
@@ -314,7 +314,7 @@ def _checked_briefing(items: list, review: dict) -> list:
         cited = [i for i in item.get("headline_ids", []) if i in ids]
         if cited:
             affects = [s for s in item.get("affects", []) if s in symbols]
-            kept.append({**item, "headline_ids": cited[:3], "affects": affects[:6]})
+            kept.append({**item, "headline_ids": cited[:3], "affects": affects[:3]})
     return kept[:5]  # short enough to read on a phone
 
 

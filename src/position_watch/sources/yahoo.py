@@ -14,12 +14,25 @@ import yfinance as yf
 
 from position_watch import instruments
 
+# One Ticker per symbol per run. yfinance holds each endpoint's answer on the
+# object, so evaluating a stock -- info, then dividends, then closes -- used to
+# be three separate fetches for the same symbol where sharing the object makes
+# it three reads of one. Cleared between runs so a later run sees fresh prices.
+_tickers: dict = {}
+
+
+def reset_run_state():
+    _tickers.clear()
+
 
 def _ticker(symbol: str):
     # A broker's symbol doesn't always match Yahoo's (a Paris listing needs
     # ".PA", a London ETF ".L"); the mapping lives in the workspace's
     # config/instruments.json.
-    return yf.Ticker(instruments.yahoo_symbol(symbol))
+    mapped = instruments.yahoo_symbol(symbol)
+    if mapped not in _tickers:
+        _tickers[mapped] = yf.Ticker(mapped)
+    return _tickers[mapped]
 
 
 def get_info(symbol: str):
