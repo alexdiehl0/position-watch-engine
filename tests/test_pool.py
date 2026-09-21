@@ -119,3 +119,37 @@ def test_a_refused_index_is_a_note_not_a_failure(monkeypatch, workspace):
     universe = {"seeds": {}, "pool_cap": 50, "index_seeds": ["sp500"], "refresh_days": 7}
     notes = pool.refresh({"stocks": {}}, universe, [], date(2026, 1, 2))
     assert any("sp500 constituents: HTTP 402" in n for n in notes)
+
+
+def test_a_stock_already_screened_today_is_not_screened_again(monkeypatch):
+    # Three failed runs on 19 Sept 2026 each re-screened the whole 420-stock
+    # pool from scratch and produced no review; a retry should be nearly free.
+    calls = []
+    monkeypatch.setattr(pool.finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
+    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
+    today = date(2026, 1, 2)
+    stocks = {"stocks": {"AAA": {}, "BBB": {}}}
+
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today)
+    assert sorted(calls) == ["AAA", "BBB"]
+
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today)  # same day again
+    assert sorted(calls) == ["AAA", "BBB"]  # nothing re-fetched
+
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today, force=True)
+    assert sorted(calls) == ["AAA", "AAA", "BBB", "BBB"]
+
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, date(2026, 1, 3))  # a new day
+    assert sorted(calls) == ["AAA", "AAA", "AAA", "BBB", "BBB", "BBB"]
+
+
+def test_a_stock_new_to_the_pool_is_still_screened_today(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pool.finnhub, "get_ratios", lambda s: (calls.append(s), ({"metric": {}}, None))[1])
+    monkeypatch.setattr(pool.yahoo, "get_closes_many", lambda symbols: ({}, None))
+    today = date(2026, 1, 2)
+    stocks = {"stocks": {"AAA": {}}}
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today)
+    stocks["stocks"]["NEW"] = {}  # an on-demand expansion adds one mid-run
+    pool.screen(stocks, {"min_market_cap_usd_m": 2000}, today)
+    assert calls == ["AAA", "NEW"]

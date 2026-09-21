@@ -99,3 +99,13 @@ def test_market_briefing_keeps_only_real_headlines_and_symbols(review_data):
         {"development": "Oil jumped after attacks on shipping lanes.", "impact": "Higher costs weigh on USDS.",
          "affects": ["USDS"], "headline_ids": ["M1"]}  # invented id, unknown symbol and invented event dropped
     ]  # fmt: skip
+
+
+def test_a_briefing_item_names_at_most_three_symbols(review_data):
+    calls = copy.deepcopy(CALLS)
+    symbols = list(review_data["holdings"]) + list(review_data["etfs"]) + list(review_data["candidates"])
+    calls["market_briefing"] = [
+        {"development": "Rates moved.", "impact": "Broad.", "affects": symbols, "headline_ids": ["M1"]}
+    ]
+    result, _, _ = reasoning.decide(review_data, None, FEEDBACK, "2026-01-02", client=FakeClaude(calls))
+    assert len(result["market_briefing"][0]["affects"]) == 3

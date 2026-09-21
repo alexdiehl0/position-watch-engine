@@ -300,13 +300,27 @@ def _screen_yahoo(symbol: str, rates: dict) -> tuple[dict, list]:
     }, gaps
 
 
-def screen(pool, universe, today):
+def screened_today(entry, today) -> bool:
+    return (entry.get("screen") or {}).get("date") == today.isoformat()
+
+
+def screen(pool, universe, today, force: bool = False):
     """One Finnhub call per US pool stock (Yahoo fundamentals for the rest),
     plus one Yahoo request for everyone's daily prices (volatility is computed
-    from those, the vendor's figure is the fallback). Stores each result on the entry."""
-    closes, _ = yahoo.get_closes_many(list(pool["stocks"]))
+    from those, the vendor's figure is the fallback). Stores each result on the entry.
+
+    A stock already screened today is left alone. The figures are daily, so a
+    second pass on the same date would spend the same ~420 calls to write the
+    same numbers -- which is exactly what a re-run after a failure used to do:
+    three failed runs on 19 Sept 2026 screened the whole pool three times over
+    and produced no review at all. `force` re-screens regardless.
+    """
+    due = {s: e for s, e in pool["stocks"].items() if force or not screened_today(e, today)}
+    if not due:
+        return
+    closes, _ = yahoo.get_closes_many(list(due))
     rates: dict = {}
-    for symbol, entry in pool["stocks"].items():
+    for symbol, entry in due.items():
         if entry.get("market") == "europe" or not US_TICKER.fullmatch(symbol):
             _screen_non_us(symbol, entry, universe, today, closes, rates)
             continue
