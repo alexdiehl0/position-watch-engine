@@ -15,14 +15,14 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from position_watch import client_requests, compliance, people, settings, suggestion_log
-from position_watch.analysis import markets, numbers, pnl
+from position_watch.analysis import holdings_update, markets, numbers, pnl
 from position_watch.analysis.stock import volatility_level
 
 ACTION_STATUS = {"buy": "good", "add": "good", "top_up": "good", "hold": "warn", "trim": "crit", "sell": "crit"}
 ACTION_RANK = {"buy": 0, "add": 1, "top_up": 1, "hold": 2, "trim": 3, "sell": 4}
 TRADES_SUBJECT = "Holdings update"
 TRADES_BODY = (
-    "I've made trades. My positions are attached (broker export or a screenshot).\n\n"
+    "I've made trades. My trades or positions are attached (broker export or a screenshot).\n\n"
     "Attach the file before sending. A spreadsheet is applied straight away; a screenshot is read and shown "
     "back to you to confirm first.\n"
 )
@@ -36,6 +36,7 @@ NAV = [
     ("watchlist", "Watchlist"),
     ("etfs", "ETFs"),
     ("positions", "P&L"),
+    ("trades", "Trades"),
     ("sectors", "Sectors"),
     ("pool", "Stock pool"),
     ("news", "News"),
@@ -108,6 +109,18 @@ def _arc(cx, cy, r_outer, r_inner, start, end):
         f"M{x1:.2f},{y1:.2f} A{r_outer},{r_outer} 0 {large} 0 {x2:.2f},{y2:.2f} "
         f"L{x3:.2f},{y3:.2f} A{r_inner},{r_inner} 0 {large} 1 {x4:.2f},{y4:.2f} Z"
     )
+
+
+def live_weights(holdings, pnl_data) -> list:
+    """holdings.csv rows with allocation_pct recomputed from today's values, so a
+    position bought since the broker snapshot -- or a size changed by a trade sent
+    in -- shows at its real weight. Falls back to the broker's figure when any
+    position has no value today (mixing the two would not add up to 100%)."""
+    values = {p["symbol"]: p["value_usd"] for p in pnl_data["positions"]}
+    if not values or any(values.get(r["symbol"]) is None for r in holdings):
+        return holdings
+    total = sum(values.values()) or 1
+    return [{**r, "allocation_pct": values[r["symbol"]] / total * 100} for r in holdings]
 
 
 def allocation(holdings, names, max_slices=8):
@@ -423,7 +436,7 @@ def build(fragment=False) -> dict:
         "nav": NAV,
         "has_review": bool(review),
         "totals": pnl_data["totals"],
-        "allocation": allocation(holdings, names),
+        "allocation": allocation(live_weights(holdings, pnl_data), names),
         "positions": positions(pnl_data),
         "sectors": sectors(pnl_data, review, holdings),
         "suggestion_counts": suggestion_counts(suggestions),
@@ -436,6 +449,10 @@ def build(fragment=False) -> dict:
         "excluded": excluded(review),
         "profile": profile(people.client()),
         "requests": requests_panel(),
+        "trades": {
+            "panel": holdings_update.panel((suggestions or {}).get("date") or "")["items"],
+            "recent": holdings_update.recent_trades(),
+        },
         "feedback": {
             "to": inbox,
             "subject": FEEDBACK_SUBJECT,

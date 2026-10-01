@@ -16,6 +16,10 @@ def workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("POSITION_WATCH_WORKSPACE", str(ws))
     for name in ("FMP_API_KEY", "FINNHUB_API_KEY", "DASHBOARD_PASSCODE"):
         monkeypatch.delenv(name, raising=False)
+    # No test asks a real mailbox whether an email went out; tests that care set their own answer.
+    from position_watch import mail
+
+    monkeypatch.setattr(mail, "already_sent", lambda key, subject, since: False)
     return ws
 
 

@@ -1,0 +1,5 @@
+# Files every run only appends to. Two runs that each add a line (the daily and the
+# monthly on the 1st) merge by keeping both lines instead of stopping on a conflict --
+# the conflict that, on 1 Oct 2026, lost the monthly commit and led to a second email.
+state/api_usage.csv merge=union
+state/monthly_snapshots.csv merge=union

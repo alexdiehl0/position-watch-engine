@@ -71,7 +71,7 @@ KINDS = (
         "add_sender",
         "that address counts as the sender's own from then on",
         "one email address",
-        ("add finance@lionbulkers.com",),
+        ("add work@example.com",),
         once=False,
     ),
     Kind(

@@ -1,0 +1,155 @@
+{#- The monthly email. Tables and inline styles only, so it reads the same in Gmail,
+    Outlook and Apple Mail; every value is escaped. Order: the numbers, the month's
+    best ideas (what he may want to buy), then the review in brief. -#}
+{%- set t = snap.totals -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>{{ title }} — {{ month_name }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;">
+<div style="display:none;max-height:0;overflow:hidden;">Your {{ month_name }} review{% if ideas %}: {{ ideas[0].symbol }} led the month's ideas, {{ ideas[0].stock_pct | pct }} since suggested{% endif %}.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;background:#ffffff;border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827;">
+
+  {#- Masthead -#}
+  <tr><td style="padding:30px 32px 26px;background:#0f172a;">
+    <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;color:#93c5fd;">{{ title }}</div>
+    <div style="font-size:26px;font-weight:700;color:#ffffff;margin-top:8px;">{{ month_name }}</div>
+    <div style="font-size:14px;color:#cbd5e1;margin-top:4px;">Your monthly review &mdash; the numbers, the month&rsquo;s best ideas, and how the portfolio is shaped.</div>
+  </td></tr>
+
+  {#- The numbers -#}
+  <tr><td style="padding:22px 32px 6px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding:0 6px 0 0;width:25%;vertical-align:top;">
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 12px;">
+            <div style="font-size:10px;letter-spacing:0.1em;color:#6b7280;">VALUE</div>
+            <div style="font-size:17px;font-weight:700;margin-top:3px;">{{ t.value_usd | usd }}</div>
+            {% if snap.get("since_last_month") %}<div style="font-size:12px;font-weight:600;color:{{ '#166534' if snap.since_last_month.value_change_usd >= 0 else '#991b1b' }};">{{ snap.since_last_month.value_change_usd | usd(signed=true) }} on {{ snap.since_last_month.previous_month }}</div>{% endif %}
+          </div>
+        </td>
+        <td style="padding:0 3px;width:25%;vertical-align:top;">
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 12px;">
+            <div style="font-size:10px;letter-spacing:0.1em;color:#6b7280;">RETURN</div>
+            <div style="font-size:17px;font-weight:700;margin-top:3px;color:{{ '#166534' if (t.pnl_usd or 0) >= 0 else '#991b1b' }};">{{ t.pnl_usd | usd(signed=true) }}</div>
+            <div style="font-size:12px;color:#6b7280;">{{ t.pnl_pct | pct }} on cost</div>
+          </div>
+        </td>
+        <td style="padding:0 3px;width:25%;vertical-align:top;">
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 12px;">
+            <div style="font-size:10px;letter-spacing:0.1em;color:#6b7280;">DIVIDENDS</div>
+            <div style="font-size:17px;font-weight:700;margin-top:3px;">{{ snap.income.dividends_received_usd | usd }}</div>
+            {% if snap.income.dividends_on_cost_pct is not none %}<div style="font-size:12px;color:#6b7280;">{{ "%.1f" | format(snap.income.dividends_on_cost_pct) }}% of cost</div>{% endif %}
+          </div>
+        </td>
+        <td style="padding:0 0 0 6px;width:25%;vertical-align:top;">
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 12px;">
+            <div style="font-size:10px;letter-spacing:0.1em;color:#6b7280;">VS {{ (index.benchmark if index else "S&P 500") | upper }}</div>
+            {% if index %}
+            <div style="font-size:17px;font-weight:700;margin-top:3px;color:{{ '#166534' if index.difference_pct >= 0 else '#991b1b' }};">{{ "%+.1f" | format(index.difference_pct) }} pts</div>
+            <div style="font-size:12px;color:#6b7280;">{{ index.portfolio_return_pct | pct }} vs {{ index.index_return_pct | pct }}</div>
+            {% else %}
+            <div style="font-size:14px;margin-top:3px;color:#6b7280;">not available</div>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  {#- The month's best ideas -#}
+  <tr><td style="padding:26px 32px 4px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.1em;color:#1d4ed8;">THE MONTH&rsquo;S BEST IDEAS</div>
+    <div style="font-size:14px;line-height:1.5;color:#374151;margin-top:6px;">
+      {% if ideas %}The watchlist ideas from {{ month_short }} that have risen most since they were first suggested{% if considered %}, out of {{ considered }}{% endif %} &mdash; with today&rsquo;s call beside each, since a strong run can also mean less room left.{% else %}None of {{ month_short }}&rsquo;s watchlist ideas is up since it was first suggested{% if considered %} ({{ considered }} looked at){% endif %}.{% endif %}
+    </div>
+  </td></tr>
+  {% for i in ideas %}
+  <tr><td style="padding:10px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e5e7eb;border-radius:12px;">
+      <tr>
+        <td style="padding:14px 16px;vertical-align:top;">
+          <div>
+            <span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:#eef2ff;color:#1d4ed8;font-size:12px;font-weight:800;">{{ loop.index }}</span>
+            <span style="font-size:17px;font-weight:700;margin-left:6px;">{{ i.symbol }}</span>
+            {% if i.name %}<span style="font-size:13px;color:#6b7280;margin-left:4px;">{{ i.name }}</span>{% endif %}
+          </div>
+          <div style="font-size:12px;color:#6b7280;margin-top:6px;">First suggested {{ i.since_text }} ({{ i.first_label }}) &middot; {{ i.days }} days &middot; {{ i.index_pct | pct }} for the S&amp;P 500 over the same days</div>
+          {% if i.latest_one_line %}<div style="font-size:14px;line-height:1.5;color:#374151;margin-top:8px;">{{ i.latest_one_line }}</div>{% endif %}
+          <div style="margin-top:10px;">
+            <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.05em;background:{{ i.bg }};color:{{ i.fg }};">{{ "TODAY" if i.on_watchlist_now else "LAST CALL" }}: {{ i.label }}</span>
+            {% if not i.on_watchlist_now %}<span style="font-size:12px;color:#6b7280;margin-left:6px;">on {{ i.latest_date }}; no longer on the watchlist</span>{% endif %}
+          </div>
+        </td>
+        <td style="padding:14px 16px;vertical-align:top;text-align:right;white-space:nowrap;width:110px;">
+          <div style="font-size:22px;font-weight:800;color:#166534;">{{ i.stock_pct | pct }}</div>
+          <div style="font-size:12px;font-weight:600;color:{{ '#166534' if i.difference_pct >= 0 else '#991b1b' }};">{{ "%+.1f" | format(i.difference_pct) }} pts vs index</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+  {% endfor %}
+  {% if ideas %}
+  <tr><td style="padding:8px 32px 0;font-size:12px;line-height:1.5;color:#6b7280;">Returns are price moves in each stock&rsquo;s own currency, from the close on the day it was first suggested to the latest close. Past moves don&rsquo;t predict future ones.</td></tr>
+  {% endif %}
+
+  {#- The review in brief -#}
+  <tr><td style="padding:28px 32px 4px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.1em;color:#374151;">THE MONTH IN BRIEF</div>
+  </td></tr>
+  {% for para in answer.overview.split("\n\n") if para.strip() %}
+  <tr><td style="padding:6px 32px 0;font-size:15px;line-height:1.6;color:#1f2937;">{{ para.strip() }}</td></tr>
+  {% endfor %}
+
+  {% for heading, items, mark, colour in [("What's working", answer.strengths, "&#10003;", "#166534"), ("Watch out for", answer.risks, "!", "#b45309"), ("Worth considering", answer.to_consider, "?", "#1d4ed8")] %}
+  {% if items %}
+  <tr><td style="padding:22px 32px 2px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.1em;color:#374151;">{{ heading | upper }}</div>
+  </td></tr>
+  {% for item in items %}
+  <tr><td style="padding:8px 32px 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:top;padding:1px 10px 0 0;"><span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#f3f4f6;color:{{ colour }};font-size:12px;font-weight:800;">{{ mark | safe }}</span></td>
+      <td style="font-size:14px;line-height:1.55;color:#374151;">{{ item }}</td>
+    </tr></table>
+  </td></tr>
+  {% endfor %}
+  {% endif %}
+  {% endfor %}
+
+  {#- Shape of the portfolio -#}
+  <tr><td style="padding:26px 32px 4px;">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.1em;color:#374151;">HOW IT&rsquo;S SHAPED</div>
+  </td></tr>
+  <tr><td style="padding:6px 32px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;color:#374151;">
+      {% if snap.concentration.largest %}<tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;">Largest position</td><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">{{ snap.concentration.largest.symbol }} &middot; {{ snap.concentration.largest.weight_pct }}%</td></tr>{% endif %}
+      <tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;">Top 3 positions</td><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">{{ snap.concentration.top3_weight_pct }}%</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;">Currencies</td><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">{% for c, v in snap.currency_pct.items() %}{{ c }} {{ v }}%{% if not loop.last %} &middot; {% endif %}{% endfor %}</td></tr>
+      {% if snap.risk.volatility_3m_pct.value is not none %}<tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;">Volatility (3-month)</td><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">{{ snap.risk.volatility_3m_pct.value }}% <span style="font-weight:400;color:#6b7280;">({{ snap.risk.volatility_3m_pct.coverage_pct }}% covered)</span></td></tr>{% endif %}
+      {% for s in call_scores %}<tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;">{{ label(s.action) }} calls vs the index</td><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">{{ s.beat_the_index }} of {{ s.calls }} ahead &middot; {{ "%+.1f" | format(s.average_difference_pct) }} pts avg</td></tr>{% endfor %}
+    </table>
+    {% if call_scores or too_recent %}<div style="font-size:12px;color:#6b7280;margin-top:6px;">Calls are scored once they are three weeks old{% if too_recent %}; {{ too_recent }} are too recent to count yet{% endif %}.</div>{% endif %}
+  </td></tr>
+
+  <tr><td style="padding:26px 32px 6px;">
+    {% if report_url %}<a href="{{ report_url }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:8px;">Read the full monthly report</a>{% endif %}
+  </td></tr>
+
+  <tr><td style="padding:18px 32px 30px;font-size:13px;line-height:1.5;color:#6b7280;border-top:1px solid #eef0f3;">
+    Reply to this email to tell the daily review what to weigh differently &mdash; for example, to add one of these ideas to your watchlist.<br>
+    {{ note }}
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

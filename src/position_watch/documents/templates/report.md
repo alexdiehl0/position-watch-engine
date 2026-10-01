@@ -35,6 +35,25 @@ Every figure below comes from live FMP, Finnhub and yfinance calls made during t
 {% endfor %}
 {% endif %}
 
+{% if trades %}
+## Your trades
+
+{% for t in trades %}
+**{{ t.heading }}**{% if t.source %} — from {{ t.source }}{% endif +%}
+
+{% for line in t.lines %}
+- {{ line }}
+{% endfor %}
+{% for p in t.problems %}
+- ⚠️ {{ p }}
+{% endfor %}
+{% for c in t.checks %}
+- ✓ {{ c }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
 {% if markets.snapshot or markets.briefing %}
 ## Markets & world
 

@@ -1,0 +1,35 @@
+{%- from "macros.html" import h2 -%}
+<section id="trades" tabindex="-1">
+  {{ h2("trades", "Trades") }}
+  <p class="sub">What you sent in, and the latest trades on file. Email a screenshot of your broker&rsquo;s Transactions page (or its export) with the subject &ldquo;Holdings update&rdquo; &mdash; the next morning&rsquo;s review applies every trade that checks out and shows it here.</p>
+  {%- for t in trades.panel %}
+  <div class="callout callout-{{ t.tone }}" role="status">
+    <div class="callout-head">{{ t.heading }}</div>
+    {% if t.source %}<div class="callout-src">From {{ t.source }}</div>{% endif %}
+    {%- if t.lines or t.problems %}
+    <ul>
+      {%- for line in t.lines %}<li>{{ line }}</li>{% endfor %}
+      {%- for p in t.problems %}<li class="callout-problem">{{ p }}</li>{% endfor %}
+    </ul>
+    {%- endif %}
+    {%- for c in t.checks %}<div class="callout-check">&#10003; {{ c }}</div>{% endfor %}
+  </div>
+  {%- endfor %}
+  {% if trades.recent -%}
+  <div class="table-scroll"><table class="pnl">
+    <thead><tr><th>Date</th><th>Position</th><th>Side</th><th class="right">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead>
+    <tbody>
+    {%- for r in trades.recent %}
+      <tr><td class="num">{{ r.date }}</td>
+        <td><span class="ticker">{{ r.symbol }}</span> <span class="pos-name">{{ r.name }}</span></td>
+        <td><span class="pill pill-{{ 'good' if (r.side or '').lower() == 'buy' else 'crit' }}">{{ r.side }}</span></td>
+        <td class="num right">{{ r.qty_text }}</td>
+        <td class="num right">{{ r.price_n | money(r.price_currency or "USD", 2) }}</td>
+        <td class="num right">{{ r.total_n | money(r.total_currency or "USD") }}</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- else %}
+  <p class="sub">No trades on file yet.</p>
+  {%- endif %}
+</section>

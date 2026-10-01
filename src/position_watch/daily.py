@@ -96,20 +96,23 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
             notes.append(f"feedback not read today: {settings.redact(exc)}")
 
         applied = []
+        # A message that is only a file (e.g. a screenshot under the pre-filled "I've made
+        # trades" text, which mail.py strips) asks for nothing: it goes to the holdings step only.
+        talk = [m for m in feedback if (m.get("text") or "").strip()]
         if feedback:
-            step("sort out what he asked for")  # before the evidence, so today's run can honour it
-            changes, request_usage = reasoning.classify_requests(feedback, day, client=client)
-            if request_usage:
-                llm.log_usage(day, {**request_usage, "task": "requests"})
-            applied = people.apply_requests(changes, {m["message_id"]: m.get("from") for m in feedback}, day)
-            for line in applied:
-                notes.append(f"Applied what you asked for — {line}")
+            changes = []
+            if talk:
+                step("sort out what he asked for")  # before the evidence, so today's run can honour it
+                changes, request_usage = reasoning.classify_requests(talk, day, client=client)
+                if request_usage:
+                    llm.log_usage(day, {**request_usage, "task": "requests"})
+                applied = people.apply_requests(changes, {m["message_id"]: m.get("from") for m in talk}, day)
+                for line in applied:
+                    notes.append(f"Applied what you asked for — {line}")
 
             step("check for a holdings update")  # before the evidence: today's numbers use the new holdings
-            if any(c["kind"] == "confirm_holdings" for c in changes):
-                confirmed = holdings_update.apply_pending(day)
-                if confirmed:
-                    notes.append("Applied the holdings update you confirmed — " + "; ".join(confirmed))
+            if any(c["kind"] == "confirm_holdings" for c in changes) or holdings_update.is_confirmation(talk):
+                holdings_update.apply_pending(day)
             upload = holdings_update.process(feedback, day, client=client)
             notes += upload["notes"]
             if upload["usage"]:
@@ -120,7 +123,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         review.save(results)
 
         step("decide calls")
-        calls, usage, call_notes = reasoning.decide(results, yesterday, feedback, day, client=client, mode=mode)
+        calls, usage, call_notes = reasoning.decide(results, yesterday, talk, day, client=client, mode=mode)
         llm.log_usage(day, {**usage, "task": "daily"})
         notes += call_notes
 
@@ -128,7 +131,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
         s = _suggestions(day, calls)
         settings.suggestions_path().write_text(json.dumps(s, indent=2) + "\n")
         suggestion_log.append_entries(day, s["holdings"], s["candidates"], s["etfs"])
-        prefs_changed = reasoning.apply_preference_changes(calls, feedback)
+        prefs_changed = reasoning.apply_preference_changes(calls, talk)
         if feedback:
             mail.mark_used(feedback, day)
         handoff.save_handoff(_handoff(day, calls, feedback))
@@ -151,6 +154,7 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
                 model=usage["model"],
                 notes=list(notes),
                 requests=results.get("requests") or [],
+                trades=holdings_update.panel(day),
             )  # fmt: skip
         )
 
@@ -168,8 +172,9 @@ def run(pages_dir=None, send_email=True, client=None, today=None, mode=None) -> 
                                   dashboard_url=publish.email_link(), dashboard_published=published, notes=notes,
                                   names={r["symbol"]: r.get("name") for r in holdings},
                                   positions={p["symbol"]: p for p in money["positions"]},
-                                  requests=results.get("requests") or [])  # fmt: skip
-            mail.send(people.recipients(), msg["subject"], msg["text"], html=msg["html"])
+                                  requests=results.get("requests") or [],
+                                  trades=holdings_update.panel(day))  # fmt: skip
+            mail.send_once(f"daily-{day}", people.recipients(), msg["subject"], msg["text"], html=msg["html"])
 
         return {"date": day, "model": usage["model"], "tokens": usage, "estimated_usd": usage["estimated_usd"],
                 "report": str(report_path), "dashboard_published": published, "feedback_read": len(feedback),

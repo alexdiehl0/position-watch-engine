@@ -4,14 +4,19 @@ name: Daily review
 # Needs the repository secrets listed in README.md. Optional repository variables:
 #   PAGES_REPOSITORY  owner/name of the public repo that hosts your locked dashboard
 #   ENGINE_REF        engine version to run (a tag like v0.4.0, or main)
+# GitHub may delay or drop scheduled runs when it's busy, especially on the hour.
+# So the run is set a little after it, with backup slots that do nothing once
+# today's review exists (and retry if the first one failed).
+#
+# Weekdays only. A Saturday or Sunday run reads the same Friday close -- the US
+# snapshot on Monday 21 Sept 2026 was still as_of 18 Sept -- and every holding
+# and ETF call came back identical across Friday, Sunday and Monday. Feedback
+# sent at a weekend is not lost: fetch_feedback() looks back 30 days.
 on:
-  # GitHub may delay or drop scheduled runs when it's busy, especially on the
-  # hour. So the run is set a little after it, with two backup slots that do
-  # nothing once today's review exists (and retry if the first one failed).
   schedule:
-    - cron: "17 4 * * *"  # 04:17 UTC
-    - cron: "47 4 * * *"  # backup
-    - cron: "17 5 * * *"  # backup
+    - cron: "17 4 * * 1-5"
+    - cron: "47 4 * * 1-5"
+    - cron: "17 5 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -68,9 +73,27 @@ jobs:
       - name: Install Position Watch
         run: pip install "position-watch @ git+https://github.com/${{ vars.ENGINE_REPO || 'alexdiehl0/position-watch-engine' }}@${{ vars.ENGINE_REF || 'main' }}"
 
+      # The `check` job runs when the run leaves the concurrency queue, which can
+      # be well before this job reaches the send. On 20 Sept 2026 it cleared at
+      # 09:58:51, eight seconds after the previous run had already emailed the
+      # review, and the client got the same report twice. So ask once more, on
+      # fresh data, immediately before doing the work.
+      - id: recheck
+        name: Has today's review landed while this run waited?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          file="reports/$(date -u +%F)-review.md"
+          if [ "${{ github.event_name }}" = "schedule" ] &&
+             gh api "repos/${{ github.repository }}/contents/$file" --silent 2>/dev/null; then
+            echo "Today's review arrived while this run was queued; nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # With a dashboard repo, the run pushes the locked page itself and waits
       # until it's live before sending the email.
       - name: Run the daily review
+        if: steps.recheck.outputs.done != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
@@ -85,14 +108,29 @@ jobs:
             position-watch daily
           fi
 
+      # Retried: the push is what puts today's review on master, and the guard
+      # above is what reads it back. On 20 Sept 2026 a single attempt lost the
+      # race with a concurrent run, master never got the file, and the next run
+      # had no way to know the day was done -- so it ran again and re-emailed.
       - name: Commit the day's files
-        if: always()
+        if: always() && steps.recheck.outputs.done != 'true'
         run: |
           git config user.name "Position Watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add config state reports site
-          if ! git diff --cached --quiet; then
-            git commit -m "Daily review $(date -u +%F)"
-            git pull --rebase
-            git push
+          # data/: holdings and trades updated from what he sent in, and the files themselves
+          # (data/raw/uploads/). Without it, an update applied in the run never reached master.
+          git add config data state reports site
+          if git diff --cached --quiet; then
+            exit 0
           fi
+          git commit -m "Daily review $(date -u +%F)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase && git push; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "push attempt $attempt did not land; retrying in ${attempt}0s"
+            sleep "${attempt}0"
+          done
+          echo "::error::could not push today's files after 5 attempts"
+          exit 1

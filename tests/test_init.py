@@ -6,7 +6,7 @@ from position_watch import init
 def test_init_creates_a_complete_portfolio_repo(tmp_path):
     written = init.create(tmp_path / "mine")
     root = tmp_path / "mine"
-    for expected in (".github/workflows/daily.yml", ".github/workflows/monthly.yml", ".gitignore", ".env.example",
+    for expected in (".github/workflows/daily.yml", ".github/workflows/monthly.yml", ".gitignore", ".gitattributes", ".env.example",
                      "README.md", "config/people.json", "config/instruments.json", "config/stock_universe.json",
                      "data/processed/holdings.csv"):  # fmt: skip
         assert expected in written

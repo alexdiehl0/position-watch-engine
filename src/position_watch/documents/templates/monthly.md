@@ -77,6 +77,27 @@ Each call measured from the day it was first made to today, against the index ov
 Too early: every call is less than three weeks old.
 {% endif %}
 
+{% if card.get("best_ideas") %}
+## The month's best ideas
+
+{% if card.best_ideas.ideas %}
+Watchlist ideas first suggested this month (out of {{ card.best_ideas.considered }}) that have risen most since, against the {{ card.best_ideas.benchmark }} over the same days, with the latest call [yfinance closes].
+
+| # | Stock | First suggested | Since then | {{ card.best_ideas.benchmark }} | Difference | Latest call |
+|---|---|---|---|---|---|---|
+{% for i in card.best_ideas.ideas %}
+| {{ loop.index }} | {{ i.symbol }}{% if i.get("name") %} — {{ i.name }}{% endif %} | {{ i.since }} ({{ label(i.first_action) }}) | {{ i.stock_pct | pct }} | {{ i.index_pct | pct }} | {{ i.difference_pct | pct }} | {{ label(i.latest_action) }} ({{ i.latest_date }}) |
+{% endfor %}
+
+Price moves in each stock's own currency, from the close on the day it was first suggested to {{ card.best_ideas.ideas[0].as_of }}. Past moves don't predict future ones.
+{% else %}
+None of this month's {{ card.best_ideas.considered }} watchlist ideas is up since it was first suggested.
+{% endif %}
+{% if card.best_ideas.unpriced %}
+No price history for: {{ card.best_ideas.unpriced | join(", ") }}.
+{% endif %}
+
+{% endif %}
 ## How the calls evolved
 
 {% for s in answer.call_patterns %}

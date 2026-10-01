@@ -1,25 +1,42 @@
-Monthly review — {{ month }}
+{{ title }}
+Monthly review — {{ month_name }}
 
-{{ answer.overview }}
-
-{% if card.against_index %}
-Against simply buying the index
-- This portfolio: {{ card.against_index.portfolio_return_pct | pct }} on {{ card.against_index.net_invested_usd | usd }} put in
-- The same money in the {{ card.against_index.benchmark }}: {{ card.against_index.index_return_pct | pct }}
-- Difference: {{ card.against_index.difference_pct | pct }}
+Value {{ snap.totals.value_usd | usd }}{% if snap.get("since_last_month") %} ({{ snap.since_last_month.value_change_usd | usd(signed=true) }} on {{ snap.since_last_month.previous_month }}){% endif %}  ·  Return {{ snap.totals.pnl_usd | usd(signed=true) }} ({{ snap.totals.pnl_pct | pct }})  ·  Dividends {{ snap.income.dividends_received_usd | usd }}
+{% if index %}
+Against the {{ index.benchmark }}: this portfolio {{ index.portfolio_return_pct | pct }}, the same money in the index {{ index.index_return_pct | pct }} ({{ "%+.1f" | format(index.difference_pct) }} pts)
 {% endif %}
 
-Strengths
+THE MONTH'S BEST IDEAS
+{% if ideas %}
+The watchlist ideas from {{ month_short }} that have risen most since first suggested{% if considered %}, out of {{ considered }}{% endif %}, with today's call.
+{% for i in ideas %}
+
+{{ loop.index }}. {{ i.symbol }}{% if i.name %} — {{ i.name }}{% endif %}: {{ i.stock_pct | pct }} since {{ i.since_text }} ({{ i.days }} days; S&P 500 {{ i.index_pct | pct }}). {% if i.on_watchlist_now %}Today: {{ i.label }}{% else %}Last call: {{ i.label }} on {{ i.latest_date }} (no longer on the watchlist){% endif %}
+
+{% if i.latest_one_line %}
+   {{ i.latest_one_line }}
+{% endif %}
+{% endfor %}
+
+Price moves in each stock's own currency. Past moves don't predict future ones.
+{% else %}
+None of {{ month_short }}'s watchlist ideas is up since it was first suggested.
+{% endif %}
+
+THE MONTH IN BRIEF
+{{ answer.overview }}
+
+WHAT'S WORKING
 {% for s in answer.strengths %}
 - {{ s }}
 {% endfor %}
 
-Risks
+WATCH OUT FOR
 {% for s in answer.risks %}
 - {{ s }}
 {% endfor %}
 
-Worth considering
+WORTH CONSIDERING
 {% for s in answer.to_consider %}
 - {{ s }}
 {% endfor %}

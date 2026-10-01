@@ -207,6 +207,17 @@ table.pool td:first-child { min-width: 15rem; }
 .pill-crit { background: var(--crit-bg); color: var(--crit-ink); }
 .pill-none { background: var(--line); color: var(--ink-3); }
 
+.callout { border-left: 4px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 0 0 12px; font-size: 0.88rem; }
+.callout ul { margin: 6px 0 0; padding-left: 18px; }
+.callout li { margin: 2px 0; }
+.callout-head { font-weight: 600; }
+.callout-src, .callout-check { color: var(--ink-3); font-size: 0.78rem; margin-top: 4px; }
+.callout-good { border-color: var(--good); background: var(--good-bg); }
+.callout-warn { border-color: var(--warn); background: var(--warn-bg); }
+.callout-crit { border-color: var(--crit); background: var(--crit-bg); }
+.callout-none { border-color: var(--ink-3); background: var(--line); }
+.callout-problem { color: var(--crit-ink); }
+
 .watchlist { list-style: none; margin: 0; padding: 0; display: grid;
              grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
 .watch { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
