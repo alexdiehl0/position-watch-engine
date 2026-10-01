@@ -46,7 +46,7 @@ CARD = {"against_index": {"benchmark": "S&P 500", "net_invested_usd": 1000.0, "p
 
 def test_facts_make_one_price_request(workspace, monkeypatch):
     monkeypatch.setattr(monthly.suggestion_log, "load_entries", lambda: LOG)
-    monkeypatch.setattr(monthly.scorecard, "compute", lambda totals, today: CARD)
+    monkeypatch.setattr(monthly.scorecard, "compute", lambda totals, today, **kw: CARD)
     f = monthly.facts(date(2026, 2, 1))
     assert f["scorecard"] == CARD
     assert f["month"] == "2026-01" and f["portfolio"]["concentration"]["top3_weight_pct"] > 0
@@ -55,9 +55,10 @@ def test_facts_make_one_price_request(workspace, monkeypatch):
 
 def test_monthly_run_writes_report_snapshot_and_email(workspace, monkeypatch):
     sent = []
-    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: sent.append((subject, body)))
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None, key=None: sent.append((subject, body, html,
+                                                                                                   key)))  # fmt: skip
     monkeypatch.setattr(monthly.suggestion_log, "load_entries", lambda: LOG)
-    monkeypatch.setattr(monthly.scorecard, "compute", lambda totals, today: CARD)
+    monkeypatch.setattr(monthly.scorecard, "compute", lambda totals, today, **kw: CARD)
     result = monthly.run(client=FakeClaude(calls=ANSWER), today=date(2026, 2, 1))
 
     report = (workspace / "reports" / "monthly" / "2026-01-review.md").read_text()
@@ -66,9 +67,43 @@ def test_monthly_run_writes_report_snapshot_and_email(workspace, monkeypatch):
         assert expected in report
     assert (workspace / "state" / "monthly_snapshots.csv").read_text().startswith("month,value_usd")
     assert "monthly" in (workspace / "state" / "api_usage.csv").read_text()
-    assert sent[0][0] == "AI STOCK PORTFOLIO REVIEW — Monthly — January 2026" and "Strengths" in sent[0][1]
+    assert sent[0][0] == "AI STOCK PORTFOLIO REVIEW — Monthly — January 2026" and "WHAT'S WORKING" in sent[0][1]
+    assert sent[0][3] == "monthly-2026-01" and "THE MONTH&rsquo;S BEST IDEAS" in sent[0][2]
     assert result["month"] == "2026-01"
     report = (workspace / "reports" / "monthly" / "2026-01-review.md").read_text()
     assert "| The same money in the S&P 500 | $1,000 | $1,200 | +20.0% |" in report
     assert "Difference: **+10.0%**" in report and "3 too recent to count" in report
-    assert "The same money in the S&P 500: +20.0%" in sent[0][1]
+    assert "this portfolio +30.0%, the same money in the index +20.0% (+10.0 pts)" in sent[0][1]
+
+
+CARD_WITH_IDEAS = {**CARD, "best_ideas": {"considered": 6, "benchmark": "S&P 500", "unpriced": [], "ideas": [
+    {"symbol": "AAA", "name": "Triple A Corp", "since": "2026-01-08", "first_action": "buy", "stock_pct": 12.5,
+     "index_pct": 1.5, "difference_pct": 11.0, "as_of": "2026-01-30", "days": 22, "latest_action": "hold",
+     "latest_date": "2026-01-30", "latest_one_line": "Ran up; fairly valued now.", "on_watchlist_now": True}]}}  # fmt: skip
+
+
+def test_the_monthly_email_leads_with_the_numbers_and_the_best_ideas(workspace, monkeypatch):
+    sent = []
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None, key=None: sent.append((body, html)))
+    monkeypatch.setattr(monthly.suggestion_log, "load_entries", lambda: LOG)
+    monkeypatch.setattr(monthly.scorecard, "compute", lambda totals, today, **kw: CARD_WITH_IDEAS)
+    monthly.run(client=FakeClaude(calls=ANSWER), today=date(2026, 2, 1))
+    text, html = sent[0]
+    assert "1. AAA — Triple A Corp: +12.5% since 8 Jan (22 days; S&P 500 +1.5%). Today: HOLD" in text
+    assert "Triple A Corp" in html and "TODAY: HOLD" in html and "+11.0 pts vs index" in html
+    assert html.index("BEST IDEAS") < html.index("THE MONTH IN BRIEF")  # what he may act on comes first
+    report = (workspace / "reports" / "monthly" / "2026-01-review.md").read_text()
+    assert "| 1 | AAA — Triple A Corp | 2026-01-08 (Buy) | +12.5% | +1.5% | +11.0% | Hold (2026-01-30) |" in report
+    # and it can be rebuilt later, without a Claude call, to look at or resend by hand
+    out = monthly.preview(workspace / "preview")
+    assert "Triple A Corp" in (workspace / "preview" / "monthly-email.html").read_text()
+    assert out["subject"] == "AI STOCK PORTFOLIO REVIEW — Monthly — January 2026"
+
+
+def test_a_month_already_emailed_is_not_reviewed_or_sent_again(workspace, monkeypatch):
+    """1 Oct 2026: a run emailed, lost its commit, and a backup slot emailed the client again."""
+    monkeypatch.setattr(mail, "already_sent", lambda key, subject, since: key == "monthly-2026-01")
+    monkeypatch.setattr(mail, "send", lambda *a, **k: (_ for _ in ()).throw(AssertionError("sent twice")))
+    client = FakeClaude(calls=ANSWER)
+    assert monthly.run(client=client, today=date(2026, 2, 1)) == {"month": "2026-01", "skipped": "already sent"}
+    assert client.requests == [] and client.batch_requests == []  # nothing paid for either

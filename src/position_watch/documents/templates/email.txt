@@ -2,6 +2,24 @@
 {{ long_date }}
 
 Value {{ totals.value_usd | usd }}  ·  Return {{ totals.pnl_usd | usd(signed=true) }} ({{ totals.pnl_pct | pct }})  ·  Dividends {{ totals.dividends_usd | usd }}
+{% if trades %}
+
+YOUR TRADES
+{% for t in trades %}
+
+{{ t.heading }}{% if t.source %} (from {{ t.source }}){% endif %}
+
+{% for line in t.lines %}
+• {{ line }}
+{% endfor %}
+{% for p in t.problems %}
+• {{ p }}
+{% endfor %}
+{% for c in t.checks %}
+✓ {{ c }}
+{% endfor %}
+{% endfor %}
+{% endif %}
 {% if requests %}
 
 YOU ASKED FOR

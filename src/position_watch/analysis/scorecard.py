@@ -10,6 +10,12 @@ nothing clever.
 It also scores the daily calls: for each one, the stock's return since the call
 against the index over exactly the same days, grouped by what was called.
 
+And it picks the month's best ideas: the watchlist stocks first suggested during
+the month (and not already held) that have risen most since that day, each with
+the index over the same days and today's call -- for a client who may want to buy
+what has been working. A strong run is not a reason in itself, so the latest call
+travels with every figure.
+
 Plain arithmetic on live prices; no judgement here.
 """
 
@@ -23,6 +29,7 @@ from position_watch.sources import fx, yahoo
 BENCHMARK = "^GSPC"
 BENCHMARK_NAME = "S&P 500"
 MIN_DAYS_FOR_CALLS = 21  # a call needs a few weeks before its return means anything
+MIN_DAYS_FOR_IDEAS = 5  # a move over a day or two is noise, not "the month's best idea"
 
 
 def _f(value):
@@ -135,6 +142,47 @@ def calls_against_index(entries: list, prices: dict, today: date) -> dict:
     return {"by_action": rows, "too_recent": skipped, "benchmark": BENCHMARK_NAME}
 
 
+def best_ideas(entries: list, prices: dict, month_start: str, month_end: str, held: set,
+               limit: int = 5) -> dict:  # fmt: skip
+    """The month's watchlist ideas that did best since first suggested, best first.
+    Only ideas that are up are listed; `considered` says how many there were."""
+    index = prices.get(BENCHMARK) or []
+    first, latest = {}, {}
+    for e in sorted(entries, key=lambda e: e.get("date") or ""):
+        symbol = e.get("symbol")
+        if e.get("scope") != "candidate" or not symbol:
+            continue
+        latest[symbol] = e
+        if month_start <= (e.get("date") or "") <= month_end and symbol not in first:
+            first[symbol] = e
+    last_day = max((e.get("date") or "" for e in entries), default="")
+    ideas, unpriced = [], []
+    for symbol, e in first.items():
+        if symbol in held:
+            continue
+        series = prices.get(symbol) or []
+        start, index_start = _price_on(series, e["date"]), _price_on(index, e["date"])
+        if not start or not index_start or not series:
+            unpriced.append(symbol)
+            continue
+        if (date.fromisoformat(series[-1][0][:10]) - date.fromisoformat(e["date"])).days < MIN_DAYS_FOR_IDEAS:
+            continue
+        stock_pct = (series[-1][1] / start - 1) * 100
+        index_pct = (index[-1][1] / index_start - 1) * 100
+        now = latest[symbol]
+        ideas.append({
+            "symbol": symbol, "since": e["date"], "first_action": (e.get("action") or "").lower(),
+            "stock_pct": round(stock_pct, 1), "index_pct": round(index_pct, 1),
+            "difference_pct": round(stock_pct - index_pct, 1), "as_of": series[-1][0],
+            "days": (date.fromisoformat(series[-1][0][:10]) - date.fromisoformat(e["date"])).days,
+            "latest_action": (now.get("action") or "").lower(), "latest_date": now.get("date"),
+            "latest_one_line": now.get("one_line") or "", "on_watchlist_now": now.get("date") == last_day,
+        })  # fmt: skip
+    ideas.sort(key=lambda i: -i["stock_pct"])
+    return {"considered": len(first) - len(held & set(first)), "ideas": [i for i in ideas if i["stock_pct"] > 0][:limit],
+            "unpriced": unpriced, "benchmark": BENCHMARK_NAME}  # fmt: skip
+
+
 def load_transactions() -> list:
     """The trade history, or [] when the portfolio has none recorded."""
     path = settings.transactions_csv()
@@ -144,17 +192,21 @@ def load_transactions() -> list:
         return list(csv.DictReader(f))
 
 
-def compute(transactions: list | None = None, totals: dict | None = None, today: date | None = None) -> dict:
-    """The whole scorecard: one Yahoo request for the index and every symbol ever called."""
+def compute(transactions: list | None = None, totals: dict | None = None, today: date | None = None,
+            month: tuple | None = None, held: set | None = None) -> dict:  # fmt: skip
+    """The whole scorecard: one Yahoo request for the index and every symbol ever called.
+    `month`: (first day, last day) as ISO dates, for the month's best ideas."""
     today = today or date.today()
     transactions = load_transactions() if transactions is None else transactions
     entries = suggestion_log.load_entries()
     symbols = sorted({e["symbol"] for e in entries if e.get("symbol")})
     prices, err = yahoo.get_history_many([BENCHMARK, *symbols], period="10y")
     if err or not (prices or {}).get(BENCHMARK):
-        return {"error": err or f"no {BENCHMARK_NAME} prices returned", "against_index": None, "calls": None}
+        return {"error": err or f"no {BENCHMARK_NAME} prices returned", "against_index": None, "calls": None,
+                "best_ideas": None}  # fmt: skip
     return {
         "against_index": against_index(transactions, totals, prices[BENCHMARK]),
         "calls": calls_against_index(entries, prices, today),
+        "best_ideas": best_ideas(entries, prices, *month, held or set()) if month else None,
         "error": None,
     }

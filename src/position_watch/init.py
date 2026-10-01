@@ -1,7 +1,7 @@
 """`position-watch init DIR`: a new, ready-to-fill portfolio repository.
 
 Copies the scaffold -- example config, empty holdings files, the daily and
-monthly workflows, README, .gitignore and .env.example -- into DIR. It never
+monthly workflows, README, .gitignore, .gitattributes and .env.example -- into DIR. It never
 overwrites an existing file.
 """
 
@@ -11,6 +11,7 @@ from pathlib import Path
 # Scaffold file -> where it goes in the new repository.
 RENAMES = {
     "gitignore": ".gitignore",
+    "gitattributes": ".gitattributes",
     "env.example": ".env.example",
     "workflows/daily.yml": ".github/workflows/daily.yml",
     "workflows/monthly.yml": ".github/workflows/monthly.yml",

@@ -16,6 +16,12 @@ reported rather than dropped in silence: fetch_feedback() returns those too
 (sender and subject only, never the body, which is untrusted text), and
 state/ignored_messages.json remembers which addresses have already been
 mentioned so the daily email names each one only once.
+
+Every scheduled email carries a key (X-Position-Watch-Key, e.g. "daily-2026-10-01")
+and send_once() looks for that key in the Sent folder first. The mailbox is the
+one record no git race can lose: on 1 Oct 2026 the monthly run emailed, lost its
+commit to a merge conflict, and the backup slot -- seeing no report on master --
+emailed the client the same review a second time.
 """
 
 import email
@@ -47,18 +53,74 @@ def _credentials():
     return user, password
 
 
-def send(to: list, subject: str, body: str, html: str | None = None):
-    """Plain-text body, plus an HTML version when given (mail apps show the best they can)."""
+KEY_HEADER = "X-Position-Watch-Key"
+
+
+def send(to: list, subject: str, body: str, html: str | None = None, key: str | None = None):
+    """Plain-text body, plus an HTML version when given (mail apps show the best they can).
+    `key` names the email (e.g. "monthly-2026-09") so send_once() can find it again."""
     user, password = _credentials()
     msg = EmailMessage()
     msg["From"] = email.utils.formataddr((SENDER_NAME, user))
     msg["To"], msg["Subject"] = ", ".join(to), subject
+    if key:
+        msg[KEY_HEADER] = key
     msg.set_content(body)
     if html:
         msg.add_alternative(html, subtype="html")
     with smtplib.SMTP_SSL(os.environ.get("MAIL_SMTP_HOST", "smtp.gmail.com"), 465, timeout=30) as smtp:
         smtp.login(user, password)
         smtp.send_message(msg)
+
+
+def _sent_folder(imap) -> str:
+    """The mailbox flagged \\Sent (its name is localised in Gmail), else Gmail's English name."""
+    status, rows = imap.list()
+    for row in (rows or []) if status == "OK" else []:
+        line = row.decode(errors="replace") if isinstance(row, bytes) else str(row)
+        if "\\Sent" in line:
+            name = line.rsplit(' "/" ', 1)[-1].strip()
+            return name if name.startswith('"') else f'"{name}"'
+    return '"[Gmail]/Sent Mail"'
+
+
+def find_in_sent(key: str, subject: str, since: date) -> bool:
+    """Is an email with this key (or, for mail sent before keys existed, this exact
+    subject) in the Sent folder since `since`? Raises if the mailbox can't be asked."""
+    user, password = _credentials()
+    with imaplib.IMAP4_SSL(os.environ.get("MAIL_IMAP_HOST", "imap.gmail.com"), timeout=30) as imap:
+        imap.login(user, password)
+        imap.select(_sent_folder(imap), readonly=True)
+        status, data = imap.search(None, "SINCE", since.strftime("%d-%b-%Y"))
+        if status != "OK":
+            raise RuntimeError(f"Sent folder search answered {status}")
+        for num in data[0].split():
+            status, parts = imap.fetch(num, f"(BODY.PEEK[HEADER.FIELDS (SUBJECT {KEY_HEADER.upper()})])")
+            if status != "OK" or not parts or not isinstance(parts[0], tuple):
+                continue
+            headers = email.message_from_bytes(parts[0][1], policy=email.policy.default)
+            if str(headers.get(KEY_HEADER, "")).strip() == key or str(headers.get("Subject", "")).strip() == subject:
+                return True
+    return False
+
+
+def already_sent(key: str, subject: str, since: date) -> bool | None:
+    """find_in_sent(), or None when the mailbox can't be asked."""
+    try:
+        return find_in_sent(key, subject, since)
+    except Exception as exc:
+        print(settings.redact(f"could not check the Sent folder: {exc}"), flush=True)
+        return None
+
+
+def send_once(key: str, to: list, subject: str, body: str, html: str | None = None, since: date | None = None) -> bool:
+    """Sends unless the Sent folder already holds this email. Returns whether it sent.
+    If the mailbox can't be asked, it sends: a missing review is worse than a repeat."""
+    if already_sent(key, subject, since or date.today() - timedelta(days=1)):
+        print(f"{subject!r} was already sent; not sending it again.", flush=True)
+        return False
+    send(to, subject, body, html=html, key=key)
+    return True
 
 
 # ---- Feedback ------------------------------------------------------------
@@ -87,18 +149,59 @@ KEEPS = ("text/csv", "application/vnd.ms-excel", "application/pdf", "image/png",
 MAX_ATTACHMENT_BYTES = 12_000_000
 
 
+EXTENSIONS = {".csv": "text/csv", ".xlsx": KEEPS[6], ".pdf": "application/pdf", ".png": "image/png",
+              ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}  # fmt: skip
+
+
 def _attachments(msg) -> list:
-    """[{filename, content_type, data}] for the files worth keeping; oversized ones are skipped."""
-    out = []
-    for part in msg.iter_attachments():
+    """[{filename, content_type, data}] for the files worth keeping; oversized ones are skipped.
+
+    Walks every part, not just the "attachments": a screenshot pasted into the
+    body arrives as an inline image inside multipart/related, which
+    iter_attachments() never returns -- that is how his 1 Oct 2026 trades were missed."""
+    out, seen = [], set()
+    for part in msg.walk():
+        if part.is_multipart():
+            continue
         media = (part.get_content_type() or "").lower()
-        name = part.get_filename() or "attachment"
-        if media not in KEEPS and not name.lower().endswith((".csv", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg")):
+        name = part.get_filename() or ""
+        disposition = part.get_content_disposition()
+        if not name and disposition is None and media.startswith("text/"):
+            continue  # the message's own text
+        ext = name.lower()[name.rfind(".") :] if "." in name else ""
+        if media not in KEEPS:
+            if ext not in EXTENSIONS:
+                continue
+            media = EXTENSIONS[ext]  # e.g. a CSV sent as application/octet-stream
+        if media == "text/plain" and not name:
             continue
         data = part.get_payload(decode=True) or b""
-        if 0 < len(data) <= MAX_ATTACHMENT_BYTES:
-            out.append({"filename": name, "content_type": media, "data": data})
+        if not 0 < len(data) <= MAX_ATTACHMENT_BYTES or data in seen:
+            continue
+        seen.add(data)
+        if not name:
+            name = f"pasted-image{len(out) + 1}{next((e for e, m in EXTENSIONS.items() if m == media), '')}"
+        out.append({"filename": name, "content_type": media, "data": data})
     return out
+
+
+# The dashboard's "I've made trades" email comes pre-filled with these words; they
+# are instructions to him, not something he asked for.
+TEMPLATE_SENTENCES = (
+    "I've made trades.",
+    "My positions are attached (broker export or a screenshot).",
+    "My trades or positions are attached (broker export or a screenshot).",
+    "Attach the file before sending.",
+    "A spreadsheet is applied straight away;",
+    "a screenshot is read and shown back to you to confirm first.",
+)
+
+
+def _without_template(text: str) -> str:
+    flat = " ".join(text.replace("\u2019", "'").split())
+    for sentence in TEMPLATE_SENTENCES:
+        flat = flat.replace(sentence, " ")
+    return text if " ".join(flat.split()) == " ".join(text.split()) else " ".join(flat.split())
 
 
 _QUOTE_START = re.compile(r"^(On .+wrote:|-----Original Message-----|From: .+)$")
@@ -141,7 +244,7 @@ def read_message(raw: bytes) -> dict | None:
     if not who:
         return {"usable": False, "message_id": message_id, "from": sender, "subject": subject,
                 "reason": "that address isn't in your people file"}  # fmt: skip
-    text, files = _own_words(_plain_text(msg)), _attachments(msg)
+    text, files = _without_template(_own_words(_plain_text(msg))), _attachments(msg)
     if not text and not files:
         return {"usable": False, "message_id": message_id, "from": sender, "subject": subject,
                 "reason": "the message had no text of its own (only quoted email)"}  # fmt: skip

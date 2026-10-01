@@ -50,6 +50,12 @@ flowchart TB
 
 The operator and the owner can be the same person. The monthly workflow (not drawn) runs `position-watch monthly`: the month's calls and a review of the portfolio as a whole, from the same files and one more Claude call, emailed on the 1st.
 
+**Trades sent in.** The owner emails a broker export or a screenshot of the broker's Transactions page (subject "Holdings update"; attached or pasted into the body). The next run, before the evidence pass, keeps the file in `data/raw/uploads/`, reads each screenshot with one Claude call, and checks every trade in code (quantity × price against the total shown, date, side, currency, not already on file, no sale beyond what is held) before netting it into `holdings.csv` and appending it to `transactions.csv`. The broker's own transaction count is compared with ours. The outcome is logged in `state/holdings_updates.json` and shown at the top of that morning's email, in the report, and in the dashboard's Trades section; a row that fails a check is named there, never applied. A *positions* screenshot (no total to check against) waits for his "confirmed". The workflow commits `data/`.
+
+**Each email goes out once.** Every scheduled email carries a key (`daily-2026-10-02`, `monthly-2026-09`) in an `X-Position-Watch-Key` header, and `mail.send_once()` looks for it in the Sent folder first; the monthly run asks before it even pays for the review. The workflows add a re-check before running, a retried push, and union merges for the append-only state files.
+
+The monthly email leads with the numbers and **the month's best ideas**: the watchlist stocks first suggested that month (not held, at least five days old) that have risen most since, each against the S&P 500 over the same days and with its latest call (`scorecard.best_ideas`). `position-watch monthly --preview DIR` rebuilds it from `state/monthly_review.json` without sending.
+
 ## The daily run in detail
 
 Line styles: **thick** arrows reach people, **dotted** arrows carry secrets (never printed; redacted from any error text) or the failure alert, plain arrows are internal calls and file writes.

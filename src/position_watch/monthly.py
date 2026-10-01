@@ -8,8 +8,15 @@ mix, value-weighted volatility and beta, income, change since last month) --
 from the workspace files; it makes no market-data calls. One Claude call
 (batched, see llm.py) then reviews the portfolio as a whole against the
 client's preferences. Output: reports/monthly/<YYYY-MM>-review.md and, if mail
-is configured, a short email. Snapshots are kept in state/monthly_snapshots.csv
-so each month can be compared with the last.
+is configured, an email (HTML with a plain-text alternative) that leads with the
+numbers and the month's best-performing ideas. Snapshots are kept in
+state/monthly_snapshots.csv so each month can be compared with the last, and the
+whole review in state/monthly_review.json so the email can be rebuilt.
+
+Sent once: before paying for the review, the run asks the Sent folder whether this
+month's email already went out (see mail.send_once) and stops if it did. On
+1 Oct 2026 a run that emailed but lost its commit was followed by a backup slot
+that emailed the client the same review again.
 """
 
 import csv
@@ -55,6 +62,9 @@ days, and scores each call against the index over exactly its own days. Say plai
 against simply buying the index, and what the call scores do and don't yet show (how many calls, how long they \
 have run). A few weeks of calls prove nothing: say so rather than reading a trend into them.
 - to_consider: things worth looking into, phrased as questions or areas to review, not as orders.
+- best_ideas_of_the_month (inside against_the_index) lists watchlist ideas that rose most since first suggested, \
+with today's call for each. A past rise is not a reason to buy: if you mention one, weigh its latest call and the \
+client's preferences, and never imply the rise will continue.
 - Keep each list item to one or two sentences."""
 
 
@@ -169,19 +179,54 @@ def facts(today: date | None = None) -> dict:
             "value_change_usd": round(snap["totals"]["value_usd"] - float(prev["value_usd"])),
             "dividends_change_usd": round(snap["totals"]["dividends_usd"] - float(prev["dividends_usd"])),
         }
+    first_day = (today.replace(day=1) - timedelta(days=1)).replace(day=1).isoformat()
+    last_day = (today.replace(day=1) - timedelta(days=1)).isoformat()
+    held = {r["symbol"] for r in holdings}
+    card = scorecard.compute(totals=snap["totals"], today=today, month=(first_day, last_day), held=held)
+    ideas = ((card or {}).get("best_ideas") or {}).get("ideas") or []
+    names = _names(review) if ideas else {}
+    for idea in ideas:
+        idea["name"] = idea.get("name") or names.get(idea["symbol"], "")
     return {
         "month": month,
         "portfolio": snap,
         "calls_over_the_month": history(suggestion_log.load_entries(), today),
-        "scorecard": scorecard.compute(totals=snap["totals"], today=today),
+        "scorecard": card,
     }
 
 
-def run(send_email: bool = True, client=None, today: date | None = None, mode=None) -> dict:
+def _names(review) -> dict:
+    """Company names for the watchlist: today's evidence first, then the stock pool."""
+    names = {}
+    pool = settings.state_dir() / "stock_pool.json"
+    if pool.exists():
+        for symbol, d in (json.loads(pool.read_text()).get("stocks") or {}).items():
+            names[symbol] = d.get("name") or ""
+    for section in ("candidates", "holdings"):
+        for symbol, d in ((review or {}).get(section) or {}).items():
+            names[symbol] = d.get("company_name") or names.get(symbol, "")
+    return names
+
+
+def subject(month: str) -> str:
+    return f"{documents.TITLE} — Monthly — {datetime.strptime(month, '%Y-%m').strftime('%B %Y')}"
+
+
+def _report_url(month: str):
+    link = settings.reports_url()
+    return f"{link.replace('/tree/', '/blob/', 1)}/monthly/{month}-review.md" if link else None
+
+
+def run(send_email: bool = True, client=None, today: date | None = None, mode=None, force: bool = False) -> dict:
     today = today or datetime.now(timezone.utc).date()
+    month = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    since = today.replace(day=1) - timedelta(days=1)
+    if send_email and not force and mail.already_sent(f"monthly-{month}", subject(month), since):
+        print(f"The {month} monthly review was already emailed; nothing to do (use --force to redo it).", flush=True)
+        return {"month": month, "skipped": "already sent"}
+
     f = facts(today)
-    month, snap, looked_back = f["month"], f["portfolio"], f["calls_over_the_month"]
-    card = f["scorecard"]
+    snap, looked_back, card = f["portfolio"], f["calls_over_the_month"], f["scorecard"]
     prefs = {k: v for k, v in (people.client().get("preferences") or {}).items() if k != "history"}
     compact = {"separators": (",", ":"), "default": str}
     user = (
@@ -197,16 +242,26 @@ def run(send_email: bool = True, client=None, today: date | None = None, mode=No
 
     llm.log_usage(today.isoformat(), usage)
     record_snapshot(month, snap)
-    path = settings.reports_dir() / "monthly" / f"{month}-review.md"
-    path.parent.mkdir(parents=True, exist_ok=True)
     ctx = {"month": month, "snap": snap, "history": looked_back, "answer": answer, "model": usage["model"],
            "card": card}  # fmt: skip
+    (settings.state_dir() / "monthly_review.json").write_text(json.dumps(ctx, indent=2, default=str) + "\n")
+    path = settings.reports_dir() / "monthly" / f"{month}-review.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(documents.render_template("monthly.md", **ctx))
+    sent = False
     if send_email:
-        link = settings.reports_url()
-        body = documents.render_template("monthly_email.txt", **ctx,
-                                         report_url=f"{link.replace('/tree/', '/blob/', 1)}/monthly/{month}-review.md"
-                                         if link else None)  # fmt: skip
-        name = datetime.strptime(month, "%Y-%m").strftime("%B %Y")
-        mail.send(people.recipients(), f"{documents.TITLE} — Monthly — {name}", body)
-    return {"month": month, "report": str(path), "estimated_usd": usage["estimated_usd"], "symbols": len(looked_back)}
+        msg = documents.monthly_email(ctx, report_url=_report_url(month))
+        sent = mail.send_once(f"monthly-{month}", people.recipients(), subject(month), msg["text"], html=msg["html"],
+                              since=since)  # fmt: skip
+    return {"month": month, "report": str(path), "estimated_usd": usage["estimated_usd"], "symbols": len(looked_back),
+            "emailed": sent}  # fmt: skip
+
+
+def preview(out_dir) -> dict:
+    """Rebuilds the last monthly email from state/monthly_review.json, without sending it."""
+    ctx = json.loads((settings.state_dir() / "monthly_review.json").read_text())
+    msg = documents.monthly_email(ctx, report_url=_report_url(ctx["month"]))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "monthly-email.html").write_text(msg["html"])
+    (out_dir / "monthly-email.txt").write_text(msg["text"])
+    return {"subject": subject(ctx["month"]), "html": str(out_dir / "monthly-email.html")}

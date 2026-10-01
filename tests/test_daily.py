@@ -4,7 +4,7 @@ import pytest
 
 from position_watch import daily, mail, review
 from position_watch.dashboard import publish
-from tests.fakes import FEEDBACK, IGNORED, FakeClaude
+from tests.fakes import CALLS, FEEDBACK, IGNORED, FakeClaude
 
 
 @pytest.fixture
@@ -15,7 +15,9 @@ def pipeline(monkeypatch, review_data):
     monkeypatch.setattr(review, "run", lambda: review_data)
     monkeypatch.setattr(mail, "fetch_feedback", lambda: (FEEDBACK, IGNORED))
     sent = []
-    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: sent.append((to, subject, body, html)))
+    monkeypatch.setattr(
+        mail, "send", lambda to, subject, body, html=None, key=None: sent.append((to, subject, body, html))
+    )
     return sent
 
 
@@ -105,7 +107,7 @@ def test_email_goes_out_only_once_the_dashboard_is_live(workspace, pipeline, pag
     events = []
     monkeypatch.setattr(publish, "push", lambda d, message: events.append(f"push {message}") or True)
     monkeypatch.setattr(publish, "wait_until_live", lambda url, page: events.append(f"live {url}") or True)
-    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None: events.append("email"))
+    monkeypatch.setattr(mail, "send", lambda to, subject, body, html=None, key=None: events.append("email"))
 
     result = daily.run(pages_dir=pages, client=FakeClaude(), today="2026-01-02")
 
@@ -127,3 +129,48 @@ def test_dashboard_trouble_still_sends_the_email_with_a_note(workspace, pipeline
     monkeypatch.setattr(publish, "wait_until_live", lambda url, page: False)  # Pages slower than 10 minutes
     daily.run(pages_dir=pages, client=FakeClaude(), today="2026-01-02")
     assert "still being put online" in pipeline[0][2]
+
+
+SCREENSHOT_ONLY = {"message_id": "<trades@example.com>", "name": "Client", "role": "client",
+                   "from": "client@example.com", "date": "Thu, 1 Jan 2026 15:48:01 +0300", "subject": "Holdings update",
+                   "text": "", "attachments": [{"filename": "pasted-image1.png", "content_type": "image/png",
+                                                "data": b"\x89PNG-trades"}]}  # fmt: skip
+
+
+def test_trades_sent_as_a_screenshot_are_in_the_next_mornings_email_report_and_dashboard(
+    workspace, pipeline, monkeypatch
+):
+    """The client's 24 Sept and 1 Oct 2026 screenshots never reached the portfolio. Now they do, that morning."""
+    from position_watch import reasoning
+    from position_watch.analysis import holdings_update
+
+    monkeypatch.setattr(mail, "fetch_feedback", lambda: ([SCREENSHOT_ONLY], []))
+    classified = []
+    monkeypatch.setattr(reasoning, "classify_requests", lambda *a, **k: classified.append(a) or ([], {}))
+    read = {"view": "transactions", "rows_stated": "", "positions": [], "set_aside": [], "unreadable": "",
+            "trades": [holdings_update.check_trade({"symbol": "USDS", "side": "Buy", "date": "Dec 30, 2025",
+                                                    "qty": "50", "price": "12.00", "price_currency": "USD",
+                                                    "total": "600"})[0]]}  # fmt: skip
+    monkeypatch.setattr(holdings_update, "from_picture", lambda uploads, client=None, today=None: (read, {}))
+
+    daily.run(client=FakeClaude({**CALLS, "feedback_applied": [], "preference_changes": []}), today="2026-01-02")
+
+    line = "Bought 50 USDS at 12.00 USD on 30 Dec 2025 — 100 → 150 held, average cost 10.00 → 10.67"
+    assert "USDS,US Stock Inc,NYSE,USD,150,10.6667" in (workspace / "data" / "processed" / "holdings.csv").read_text()
+    assert classified == []  # a file with no words of his own is not a request
+    (to, subject, body, html) = pipeline[0]
+    assert f"YOUR TRADES\n\nYour trades are in — holdings updated (from pasted-image1.png)\n• {line}" in body
+    assert "YOUR TRADES" in html and line in html
+    assert body.index("YOUR TRADES") < body.index("YOUR STOCKS")  # near the top, not in the footnotes
+    report = (workspace / "reports" / "2026-01-02-review.md").read_text()
+    assert f"## Your trades\n\n**Your trades are in — holdings updated** — from pasted-image1.png\n\n- {line}" in report
+    site = (workspace / "site" / "index.html").read_text()
+    assert 'id="trades"' in site and line in site and "Your trades are in" in site
+    assert (workspace / "data" / "raw" / "uploads" / "2026-01-02-pasted-image1.png").read_bytes() == b"\x89PNG-trades"
+    assert "<trades@example.com>" in json.loads((workspace / "state" / "feedback_used.json").read_text())
+
+
+def test_the_daily_email_is_not_sent_twice(workspace, pipeline, monkeypatch):
+    monkeypatch.setattr(mail, "already_sent", lambda key, subject, since: key == "daily-2026-01-02")
+    daily.run(client=FakeClaude(), today="2026-01-02")
+    assert pipeline == []

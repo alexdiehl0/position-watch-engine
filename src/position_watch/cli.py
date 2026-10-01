@@ -120,7 +120,12 @@ def cmd_daily(args):
 def cmd_monthly(args):
     from position_watch import monthly
 
-    _print(monthly.facts() if args.facts else monthly.run(send_email=not args.no_email))
+    if args.preview:
+        from pathlib import Path
+
+        _print(monthly.preview(Path(args.preview)))
+        return
+    _print(monthly.facts() if args.facts else monthly.run(send_email=not args.no_email, force=args.force))
 
 
 def cmd_init(args):
@@ -135,7 +140,7 @@ def cmd_email_preview(args):
     """The daily email rebuilt from today's saved files (state/suggestions.json and latest_review.json)."""
     from pathlib import Path
 
-    from position_watch.analysis import pnl
+    from position_watch.analysis import holdings_update, pnl
     from position_watch.dashboard import publish
     from position_watch.dashboard.view import load_inputs
     from position_watch.documents import render as documents
@@ -151,7 +156,8 @@ def cmd_email_preview(args):
     day = sugg["date"]
     msg = documents.email(day, latest, calls, money["totals"], settings.report_url(day), publish.email_link(),
                           args.dashboard_published, names={r["symbol"]: r.get("name") for r in holdings},
-                          positions={p["symbol"]: p for p in money["positions"]})  # fmt: skip
+                          positions={p["symbol"]: p for p in money["positions"]},
+                          trades=holdings_update.panel(day))  # fmt: skip
     Path(args.html).write_text(msg["html"])
     Path(args.text).write_text(msg["text"])
     _print({"subject": msg["subject"], "html": args.html, "text": args.text})
@@ -181,6 +187,8 @@ def build_parser():
     p = sub.add_parser("monthly", help="the monthly look-back and whole-portfolio review")
     p.add_argument("--no-email", action="store_true", help="write the report only")
     p.add_argument("--facts", action="store_true", help="print the computed facts only (no Claude call, no files)")
+    p.add_argument("--force", action="store_true", help="run and email even if this month's email already went out")
+    p.add_argument("--preview", metavar="DIR", help="rebuild the last monthly email into DIR without sending it")
     p.set_defaults(func=cmd_monthly)
     p = sub.add_parser("email-preview", help="rebuild today's email (HTML and text files) from the saved state")
     p.add_argument("--html", default="email.html", help="where to write the HTML version")

@@ -1,6 +1,16 @@
 name: Monthly review
 
 # Position Watch monthly run: how the calls evolved and a review of the portfolio as a whole.
+#
+# Sent once. On 1 Oct 2026 the first run emailed the client, then lost its commit
+# to a merge conflict with the daily run's (both append to state/api_usage.csv);
+# with no report on master, a backup slot ran the whole review again and emailed
+# it a second time. Four guards now, any one of which would have stopped that:
+#   1. the engine asks the Sent folder before paying for the review, and again
+#      before sending (mail.send_once) -- the mailbox is the record no git race loses;
+#   2. the backup slot re-checks for the report just before running (as daily.yml);
+#   3. the append-only state files merge by union (.gitattributes), so they can't conflict;
+#   4. the push is retried.
 on:
   # Off the hour, with two backup slots that do nothing once the report exists
   # (see daily.yml for why).
@@ -43,25 +53,53 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}  # the branch as it is now, not as it was when the slot fired
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install Position Watch
         run: pip install "position-watch @ git+https://github.com/${{ vars.ENGINE_REPO || 'alexdiehl0/position-watch-engine' }}@${{ vars.ENGINE_REF || 'main' }}"
+
+      # The check above runs when the slot leaves the concurrency queue, which can be
+      # long before this job starts (a daily run may be ahead of it). Ask again.
+      - id: recheck
+        name: Has this month's review landed while this run waited?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ended=$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)
+          if [ "${{ github.event_name }}" = "schedule" ] &&
+             gh api "repos/${{ github.repository }}/contents/reports/monthly/$ended-review.md" --silent 2>/dev/null; then
+            echo "The $ended review arrived while this run was queued; nothing to do."
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run the monthly review
+        if: steps.recheck.outputs.done != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MAIL_USER: ${{ secrets.MAIL_USER }}
           MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
         run: position-watch monthly
+
       - name: Commit the report
-        if: always()
+        if: always() && steps.recheck.outputs.done != 'true'
         run: |
           git config user.name "Position Watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state reports
-          if ! git diff --cached --quiet; then
-            git commit -m "Monthly review $(date -u +%Y-%m)"
-            git pull --rebase
-            git push
+          if git diff --cached --quiet; then
+            exit 0
           fi
+          git commit -m "Monthly review $(date -u +%Y-%m)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase && git push; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "push attempt $attempt did not land; retrying in ${attempt}0s"
+            sleep "${attempt}0"
+          done
+          echo "::error::could not push the monthly report after 5 attempts"
+          exit 1

@@ -101,9 +101,21 @@ def _request_lines(requests) -> list:
     return [client_requests.describe(r) for r in (requests or [])]
 
 
+# Trade-update cards: (accent, background) per tone.
+CARD = {"good": ("#16a34a", "#f0fdf4"), "warn": ("#d97706", "#fffbeb"), "crit": ("#dc2626", "#fef2f2"),
+        "none": ("#9ca3af", "#f9fafb")}  # fmt: skip
+
+
+def _trade_cards(trades) -> list:
+    """holdings_update.panel()'s items, with the colours the email needs."""
+    return [{**item, "accent": CARD[item["tone"]][0], "bg": CARD[item["tone"]][1]}
+            for item in (trades or {}).get("items", [])]  # fmt: skip
+
+
 def report(**ctx) -> str:
     backdrop = markets.display(ctx.get("review"), (ctx.get("calls") or {}).get("market_briefing"))
     ctx["requests"] = _request_lines(ctx.get("requests"))
+    ctx["trades"] = _trade_cards(ctx.get("trades"))
     return _env().get_template("report.md").render(markets=backdrop, **ctx)
 
 
@@ -119,14 +131,17 @@ def email(
     names: dict | None = None,
     positions: dict | None = None,
     requests=(),
+    trades=None,
 ) -> dict:
     """The daily email: {"subject", "text", "html"}. `positions`: {symbol: P&L row from
-    pnl.compute()}, for the performance shown under "Your stocks"."""
+    pnl.compute()}, for the performance shown under "Your stocks". `trades`:
+    holdings_update.panel(), shown near the top so he sees his update landed."""
     ctx = {
         "long_date": date.fromisoformat(day).strftime("%A, %-d %B %Y"),
         "totals": totals,
         "markets": markets.display(review, calls.get("market_briefing")),
         "requests": _request_lines(requests),
+        "trades": _trade_cards(trades),
         "sections": [
             ("Your stocks", email_rows(calls.get("holdings", []), review.get("holdings", {}), names, positions or {})),
             ("Core ETFs", email_rows(calls.get("etfs", []), review.get("etfs", {}), names)),
@@ -146,6 +161,43 @@ def email(
         "subject": subject(day),
         "text": env.get_template("email.txt").render(**ctx),
         "html": env.get_template("email.html").render(**ctx),
+    }
+
+
+def _idea_rows(card) -> list:
+    """The month's best ideas, with what the email shows beside each."""
+    best = (card or {}).get("best_ideas") or {}
+    rows = []
+    for i in best.get("ideas") or []:
+        status = _STATUS.get(i.get("latest_action") or "", "none")
+        fg, bg = BADGES[status]
+        rows.append({**i, "label": compliance.label(i.get("latest_action")).upper() or "–", "fg": fg, "bg": bg,
+                     "since_text": date.fromisoformat(i["since"]).strftime("%-d %b"),
+                     "first_label": compliance.label(i.get("first_action"))})  # fmt: skip
+    return rows
+
+
+def monthly_email(ctx: dict, report_url=None) -> dict:
+    """The monthly email: {"text", "html"}. `ctx` is what monthly.run() saves."""
+    month = ctx["month"]
+    card = ctx.get("card") or {}
+    best = card.get("best_ideas") or {}
+    data = {
+        **ctx,
+        "month_name": date.fromisoformat(f"{month}-01").strftime("%B %Y"),
+        "month_short": date.fromisoformat(f"{month}-01").strftime("%B"),
+        "ideas": _idea_rows(card),
+        "considered": best.get("considered") or 0,
+        "index": card.get("against_index"),
+        "call_scores": ((card.get("calls") or {}).get("by_action")) or [],
+        "too_recent": (card.get("calls") or {}).get("too_recent") or 0,
+        "report_url": report_url,
+        "badges": BADGES,
+    }
+    env = _env()
+    return {
+        "text": env.get_template("monthly_email.txt").render(**data),
+        "html": env.get_template("monthly_email.html").render(**data),
     }
 
 
